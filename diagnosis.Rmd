@@ -1,0 +1,176 @@
+---
+title: "Assignment1: Breast Cancer Diagnosis Prediction Model"
+author: "Jerry Khidaroo"
+date: "2/5/2020"
+output: 
+  html_document:
+  toc: TRUE
+  toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Libraries
+
+```{r, message = FALSE}
+# Load packages
+library('ggplot2') # visualization
+library('ggthemes') # visualization
+library('scales') # visualization
+library('dplyr') # data manipulation
+library('mice') # imputation
+library('randomForest') # classification algorithm
+library('caret')
+library('e1071')
+```
+
+## 1. Business Understanding
+
+- Objective: The Objective of this project is to create a model from the Wisconsin Breast Cancer Data that would allow for a classification prediction of 'B' or 'M' (Benign or Malignant) when givehe results from a patient's imaging study.
+
+- Project Plan:
+
+- Business Success Criteria: A successful project outcome would be achieved if a model is created that can predict the 'B' or 'M' outcome with a high degree of accuracy.
+
+- Ethical Framework Questions: 
+  - How could your system negatively impact individuals? The greatest negative impact would occur for a false positive diagnosis since this could delay treatment and in a life threatening scenario. A false negative would also be negatively impactful but to a lessor degree.
+  - Who is most vulnerable and why? The most vulnerable would be patients with a 'M' dianosis not detectable by the model.
+  - How much error in predictions can your business accept for this use case? False positives need to be minimised as much as posible. Minimsing False negatives are second in priority.
+  - Will you need to explain which input factors had the greatest influence on outputs? Yes. Being able to explain which features have the most influence on outcome is very desirable.
+  - Do you need PII or can you provide group-level data? The analysis requires patient level data however any PII can be anonymised
+
+## 2. Data Understanding
+
+- Ethical Framework Questions: 
+  - Have you de-identified your data and taken
+measures to reduce the probability of reidentification?
+  - Will socially sensitive features like gender or ethnic
+background influence outputs?
+  - Are seemingly harmless features like location hiding
+proxies for socially sensitive features?
+
+#### Get Data File
+
+- The Dataset used is obtained from: https://www.kaggle.com/uciml/breast-cancer-wisconsin-data
+
+```{r, message = FALSE}
+# Get dir of opened R file. (Note: Only works for RStudio)
+# wdir <- dirname(rstudioapi::getActiveDocumentContext()$path)
+# Use relative path instead
+wdir <- "."
+# show(wdir)
+
+# Concatenate data file subdir and name.
+full_file_name <- paste(wdir,"/input/diagnosis_data.csv",sep="")
+show(full_file_name)
+```
+
+#### Load and check data
+
+
+```{r, message = FALSE}
+# Load full data
+diagnosis_data_full = read.csv(full_file_name)
+
+# check data
+str(diagnosis_data_full)
+#show(diagnosis_data_full)
+```
+
+## 3. Data Preparation
+
+#### Plots
+
+Embed plot of diagnosis x Mean Compactness:
+
+```{r, echo=FALSE}
+plot(x = diagnosis_data_full$diagnosis, y = diagnosis_data_full$texture_mean)
+```
+
+#### Split Data into Train and Test Sets
+
+```{r, message = FALSE}
+# Split the data into a train set and a test set
+diagnosis_data_train <- diagnosis_data_full[1:426,]
+diagnosis_data_test <- diagnosis_data_full[427:569,]
+```
+
+#### Check diagnosis target variable
+
+```{r, message = FALSE}
+prop.table(table(diagnosis_data_train$diagnosis))*100
+prop.table(table(diagnosis_data_test$diagnosis))*100
+```
+
+This split is fine as it gives greater importance to 'M' outcomes for training
+
+## 4. Data Modeling
+
+- Ethical Framework Questions: 
+  - Does your use case require a more interpretable algorithm?
+  - Should you be optimizing for a different outcome than accuracy to make your outcomes fairer?
+  - Is it possible that a malicious actor has compromised training data and created misleading results?
+
+#### Build first Model based on Mean values
+
+```{r, message = FALSE}
+diag_mean_model <- randomForest(factor(diagnosis) ~ radius_mean + texture_mean + perimeter_mean + 
+                          + smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
+                            symmetry_mean + fractal_dimension_mean,
+                         data = diagnosis_data_train)
+diag_mean_model
+```
+
+## 5. Data Evaluation
+
+#### Examine the Mean Model for feature importance
+
+```{r, message = FALSE}
+# Get importance
+importance    <- importance(diag_mean_model)
+varImportance <- data.frame(Variables = row.names(importance), 
+                            Importance = round(importance[ ,'MeanDecreaseGini'],2))
+
+# Create a rank variable based on importance
+rankImportance <- varImportance %>%
+  mutate(Rank = paste0('#',dense_rank(desc(Importance))))
+
+# Use ggplot2 to visualize the relative importance of variables
+ggplot(rankImportance, aes(x = reorder(Variables, Importance),  y = Importance, fill = Importance)) +
+    geom_bar(stat='identity') + 
+    geom_text(aes(x = Variables, y = 0.5, label = Rank), hjust=0, vjust=0.55, size = 4, colour = 'red') +
+    labs(x = 'Variables') + coord_flip() +  theme_few()
+```
+
+#### Test the Mean Model
+
+```{r, message = FALSE}
+pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1,2)])
+cm_mean <- confusionMatrix(pre_mean_rf, diagnosis_data_test$diagnosis)
+cm_mean
+```
+
+
+## 6. Deployment
+
+- Ethical Framework Questions: 
+  - Can a malicious actor infer information about individuals from your system?
+  - Are you able to identify anomalous activity on your system that might indicate a security breach?
+  - Do you have a plan to monitor for poor performance on individuals or subgroups?
+  - Do you have a plan to log and store historical predictions if a consumer requests access in the future?
+  - Have you documented model retraining cycles and can you confirm that a subject’s data has been removed from models?
+
+## References
+
+Yihui Xie, J. J. Allaire, Garrett Grolemund, 2019, R Markdown: The Definitive Guide
+https://bookdown.org/yihui/rmarkdown/markdown-syntax.html
+
+Jonathan McPherson, 2016, R Notebooks
+https://blog.rstudio.com/2016/10/05/r-notebooks
+
+Adam Kardash, Patricia Kosseim, 2018, Responsible AI in Consumer Enterprise, integrate.ai
+
+Mercedes Ovejero Bruna, 2019, https://www.kaggle.com/mercheovejero/breast-cancer-analysis-real-machine-learning
+
