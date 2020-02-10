@@ -113,7 +113,7 @@ This split is fine as it gives greater importance to 'M' outcomes for training
   - Should you be optimizing for a different outcome than accuracy to make your outcomes fairer?
   - Is it possible that a malicious actor has compromised training data and created misleading results?
 
-#### Build first Model based on Mean values
+#### Build a Model based on Mean values
 
 ```{r, message = FALSE}
 diag_mean_model <- randomForest(factor(diagnosis) ~ radius_mean + texture_mean + perimeter_mean + 
@@ -123,7 +123,53 @@ diag_mean_model <- randomForest(factor(diagnosis) ~ radius_mean + texture_mean +
 diag_mean_model
 ```
 
+#### Build a Model based on SE values (Standard Error of Mean)
+
+```{r, message = FALSE}
+diag_se_model <- randomForest(factor(diagnosis) ~ radius_se + texture_se + perimeter_se + 
+                          + smoothness_se + compactness_se + concavity_se + concave.points_se +
+                            symmetry_se + fractal_dimension_se,
+                         data = diagnosis_data_train)
+diag_se_model
+```
+
+#### Build a Model based on Worst values (Largest Mean Value)
+
+```{r, message = FALSE}
+diag_worst_model <- randomForest(factor(diagnosis) ~ radius_worst + texture_worst + perimeter_worst + 
+                          + smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
+                            symmetry_worst + fractal_dimension_worst,
+                         data = diagnosis_data_train)
+diag_worst_model
+```
+
 ## 5. Data Evaluation
+
+#### Test the Mean Model
+
+```{r, message = FALSE}
+pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1,2)])
+cm_mean <- confusionMatrix(pre_mean_rf, diagnosis_data_test$diagnosis)
+cm_mean
+```
+
+#### Test the SE Model
+
+```{r, message = FALSE}
+pre_se_rf <- predict(diag_se_model, diagnosis_data_test[,-c(1,2)])
+cm_se <- confusionMatrix(pre_se_rf, diagnosis_data_test$diagnosis)
+cm_se
+```
+
+#### Test the Worst Model
+
+```{r, message = FALSE}
+pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1,2)])
+cm_worst <- confusionMatrix(pre_worst_rf, diagnosis_data_test$diagnosis)
+cm_worst
+```
+
+- From these 3 outcomes, the SE model is clearly inferior, so lets look for more details of the other 2 models
 
 #### Examine the Mean Model for feature importance
 
@@ -144,7 +190,48 @@ ggplot(rankImportance, aes(x = reorder(Variables, Importance),  y = Importance, 
     labs(x = 'Variables') + coord_flip() +  theme_few()
 ```
 
-#### Test the Mean Model
+- Shows the following as most important: concave.points_mean, perimeter_mean, concavity_mean, radius_mean
+
+#### Examine the Worst Model for feature importance
+
+```{r, message = FALSE}
+# Get importance
+importance    <- importance(diag_worst_model)
+varImportance <- data.frame(Variables = row.names(importance), 
+                            Importance = round(importance[ ,'MeanDecreaseGini'],2))
+
+# Create a rank variable based on importance
+rankImportance <- varImportance %>%
+  mutate(Rank = paste0('#',dense_rank(desc(Importance))))
+
+# Use ggplot2 to visualize the relative importance of variables
+ggplot(rankImportance, aes(x = reorder(Variables, Importance),  y = Importance, fill = Importance)) +
+    geom_bar(stat='identity') + 
+    geom_text(aes(x = Variables, y = 0.5, label = Rank), hjust=0, vjust=0.55, size = 4, colour = 'red') +
+    labs(x = 'Variables') + coord_flip() +  theme_few()
+```
+
+- Shows the following as most important: radius_worst, perimeter_worst, concave.points_worst, concavity_worst
+
+#### Re-Build Model based on only top 4 important Mean values
+
+```{r, message = FALSE}
+diag_mean_model <- randomForest(factor(diagnosis) ~ concave.points_mean + perimeter_mean + concavity_mean 
+                                + radius_mean,
+                         data = diagnosis_data_train)
+diag_mean_model
+```
+
+#### Re-Build Model based on only top 4 important Worst values (Largest Mean Value)
+
+```{r, message = FALSE}
+diag_worst_model <- randomForest(factor(diagnosis) ~ radius_worst + perimeter_worst + concave.points_worst
+                             + concavity_worst,
+                         data = diagnosis_data_train)
+diag_worst_model
+```
+
+#### Test the New Mean Model
 
 ```{r, message = FALSE}
 pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1,2)])
@@ -152,6 +239,39 @@ cm_mean <- confusionMatrix(pre_mean_rf, diagnosis_data_test$diagnosis)
 cm_mean
 ```
 
+#### Test the New Worst Model
+
+```{r, message = FALSE}
+pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1,2)])
+cm_worst <- confusionMatrix(pre_worst_rf, diagnosis_data_test$diagnosis)
+cm_worst
+```
+
+- So eliminating lessor features slightly reduced the accuracy for both models
+- Lets try a model that includes both the mean and worst features
+
+
+#### Build a Model based Mean + Worst values
+
+```{r, message = FALSE}
+diag_mean_worst_model <- randomForest(factor(diagnosis) ~ radius_mean + texture_mean + perimeter_mean + 
+                          + smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
+                            symmetry_mean + fractal_dimension_mean + radius_worst + texture_worst + perimeter_worst + 
+                          + smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
+                            symmetry_worst + fractal_dimension_worst,
+                         data = diagnosis_data_train)
+diag_mean_worst_model
+```
+
+#### Test the Mean + Worst Model
+
+```{r, message = FALSE}
+pre_mean_worst_rf <- predict(diag_mean_worst_model, diagnosis_data_test[,-c(1,2)])
+cm_mean_worst <- confusionMatrix(pre_mean_worst_rf, diagnosis_data_test$diagnosis)
+cm_mean_worst
+```
+
+- This appears to be a slight improvement
 
 ## 6. Deployment
 
