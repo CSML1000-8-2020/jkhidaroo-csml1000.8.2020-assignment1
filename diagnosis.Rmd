@@ -81,13 +81,15 @@ str(diagnosis_data_full)
 
 ## 3. Data Preparation
 
-#### Plots
-
-Embed plot of diagnosis x Mean Compactness:
+#### Plot the Target against a few of the features to get a feel for the data
 
 ```{r, echo=FALSE}
-plot(x = diagnosis_data_full$diagnosis, y = diagnosis_data_full$texture_mean)
+plot(y = diagnosis_data_full$diagnosis, x = diagnosis_data_full$radius_mean)
+plot(y = diagnosis_data_full$diagnosis, x = diagnosis_data_full$texture_mean)
+plot(y = diagnosis_data_full$diagnosis, x = diagnosis_data_full$concave.points_mean)
 ```
+
+- Looks like in general 'M' gives higher features values than 'B'
 
 #### Split Data into Train and Test Sets
 
@@ -104,9 +106,29 @@ prop.table(table(diagnosis_data_train$diagnosis))*100
 prop.table(table(diagnosis_data_test$diagnosis))*100
 ```
 
-This split is fine as it gives greater importance to 'M' outcomes for training
+- This split is fine as it gives greater importance to 'M' outcomes for training
 
-## 4. Data Modeling
+- Start with a simple Naive Bayes model
+
+## 4. A) Data Modeling - Naive Bayes
+
+```{r, message = FALSE}
+diag_nb_model <- naiveBayes(diagnosis_data_train[,-c(1,2)], diagnosis_data_train$diagnosis)
+```
+
+##5. A) Data Evaluation - Naive Bayes
+
+#### Test the Naive Bayes model.
+
+```{r, message = FALSE}
+diag_nb_pre <- predict(diag_nb_model, diagnosis_data_test[,-c(1,2)])
+diag_cm_nb <- confusionMatrix(diag_nb_pre, diagnosis_data_test$diagnosis)
+diag_cm_nb
+```
+
+- Now Try a lets try some Random Forests
+
+## 4. B) Data Modeling - Random Forest
 
 - Ethical Framework Questions: 
   - Does your use case require a more interpretable algorithm?
@@ -143,7 +165,7 @@ diag_worst_model <- randomForest(factor(diagnosis) ~ radius_worst + texture_wors
 diag_worst_model
 ```
 
-## 5. Data Evaluation
+## 5. B) Data Evaluation - Random Forest
 
 #### Test the Mean Model
 
@@ -272,6 +294,34 @@ cm_mean_worst
 ```
 
 - This appears to be a slight improvement
+
+- Now lets try a Logistic Regression Model
+
+## 4. C) Data Modeling - Logistic Regression
+
+```{r, message = FALSE}
+fit_lg <- trainControl(## 10-fold CV
+  method = "cv",
+  number = 10,
+  savePredictions = TRUE)
+
+diag_lg<-train(diagnosis ~ radius_mean + texture_mean + perimeter_mean + 
+                          + smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
+                            symmetry_mean + fractal_dimension_mean + radius_worst + texture_worst + perimeter_worst + 
+                          + smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
+                            symmetry_worst + fractal_dimension_worst,
+               data=diagnosis_data_train,method="glm",family=binomial(), trControl=fit_lg)
+```
+
+## 5. C) Data Evaluation - Logistic Regression
+
+#### Test Logistic Regression Model
+
+```{r, message = FALSE}
+diag_lg_pre<-predict(diag_lg,diagnosis_data_test[,-c(1,2)])
+cm_lg<-confusionMatrix(diag_lg_pre,diagnosis_data_test$diagnosis)
+cm_lg
+```
 
 ## 6. Deployment
 
