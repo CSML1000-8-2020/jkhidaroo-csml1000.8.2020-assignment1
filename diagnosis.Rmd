@@ -344,8 +344,10 @@ ui <- fluidPage(theme = shinytheme("lumen"),
   sidebarLayout(
     sidebarPanel(
       
+      # Button to click for generating prediction
       actionButton("predict", "Predict"),
       
+      # Inputs
       sliderInput("radius_mean", label = "radius_mean:", min = 1, max = 30, value = 1, step = 0.001),
       sliderInput("texture_mean", label = "texture_mean:", min = 5, max = 50, value = 5, step = 0.01),
       sliderInput("perimeter_mean", label = "perimeter_mean:", min = 25, max = 225, value = 25, step = 0.01),
@@ -359,11 +361,11 @@ ui <- fluidPage(theme = shinytheme("lumen"),
       
     ),
 
-    # Output: Description
+    # Output: Text Giving a Prediction
     mainPanel(
-      # plotOutput(outputId = "lineplot", height = "300px"),
-      textOutput(outputId = "desc"),
       textOutput(outputId = "Pred"),
+      textOutput(outputId = "ShowStr"),
+      tableOutput("Table"),
     )
   )
 )
@@ -396,13 +398,17 @@ server <- function(input, output, session) {
                symmetry_mean=input$symmetry_mean,
                fractal_dimension_mean=input$fractal_dimension_mean)
       })
+      
+      str_text <- reactive({
+        str(data())
+      })
+      output$ShowStr <- renderPrint(str_text())
 
       pred <- reactive({
         predict(diag_mean_model,data())
       })
 
       output$Pred <- renderPrint(pred())
-    #})
   })
 }
 ```
