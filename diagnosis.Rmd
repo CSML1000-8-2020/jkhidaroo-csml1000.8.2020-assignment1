@@ -1,7 +1,7 @@
 ---
-title: "Assignment1: Breast Cancer Diagnosis Prediction Model"
-author: "Jerry Khidaroo"
-date: "2/5/2020"
+title: "CSML1000 Winter 2020, Group 8, Assignment1: Breast Cancer Diagnosis Prediction Model"
+author: "Steven Wang, Tarun Bagga, Paul Doucet, Jerry Khidaroo, "
+date: "2/15/2020"
 output: 
   html_document:
   toc: TRUE
@@ -32,7 +32,7 @@ library('readr')
 
 ## 1. Business Understanding
 
-- Objective: The Objective of this project is to create a model from the Wisconsin Breast Cancer Data that would allow for a classification prediction of 'B' or 'M' (Benign or Malignant) when givehe results from a patient's imaging study.
+- Objective: The Objective of this project is to create a model from the Wisconsin Breast Cancer Data that would allow for a classification prediction of 'B' or 'M' (Benign or Malignant) when given results from tumor measurement studies.
 
 - Project Plan:
 
@@ -48,12 +48,9 @@ library('readr')
 ## 2. Data Understanding
 
 - Ethical Framework Questions: 
-  - Have you de-identified your data and taken
-measures to reduce the probability of reidentification?
-  - Will socially sensitive features like gender or ethnic
-background influence outputs?
-  - Are seemingly harmless features like location hiding
-proxies for socially sensitive features?
+  - Have you de-identified your data and taken measures to reduce the probability of reidentification? The data is de-identified.
+  - Will socially sensitive features like gender or ethnic background influence outputs? No demographic data is present.
+  - Are seemingly harmless features like location hiding proxies for socially sensitive features? No demographic data is present. 
 
 #### Get Data File
 
@@ -135,9 +132,9 @@ diag_cm_nb
 ## 4. B) Data Modeling - Random Forest
 
 - Ethical Framework Questions: 
-  - Does your use case require a more interpretable algorithm?
-  - Should you be optimizing for a different outcome than accuracy to make your outcomes fairer?
-  - Is it possible that a malicious actor has compromised training data and created misleading results?
+  - Does your use case require a more interpretable algorithm? Accuracy is more impotant than interpretability for this study.
+  - Should you be optimizing for a different outcome than accuracy to make your outcomes fairer? Since there is no demographic data, fairness would be hard to determine.
+  - Is it possible that a malicious actor has compromised training data and created misleading results? No. The data is from a reputable source.
 
 #### Build a Model based on Mean values
 
@@ -330,16 +327,17 @@ cm_lg
 ## 6. Deployment
 
 - Ethical Framework Questions: 
-  - Can a malicious actor infer information about individuals from your system?
+  - Can a malicious actor infer information about individuals from your system? No. There is no PII present.
   - Are you able to identify anomalous activity on your system that might indicate a security breach?
   - Do you have a plan to monitor for poor performance on individuals or subgroups?
   - Do you have a plan to log and store historical predictions if a consumer requests access in the future?
   - Have you documented model retraining cycles and can you confirm that a subject’s data has been removed from models?
-  
+
 #### Define UI
 
 ```{r, message = FALSE}
 ui <- fluidPage(theme = shinytheme("lumen"),
+#ui <- fillPage(theme = shinytheme("lumen"),
   titlePanel("Diagnosis Predictor"),
   sidebarLayout(
     sidebarPanel(
@@ -358,15 +356,15 @@ ui <- fluidPage(theme = shinytheme("lumen"),
       sliderInput("concave.points_mean", label = "concave.points_mean:", min = 0, max = 25, value = 0, step = 0.00001),
       sliderInput("symmetry_mean", label = "symmetry_mean:", min = 0, max = 5, value = 0, step = 0.00001),
       sliderInput("fractal_dimension_mean", label = "fractal_dimension_mean:", min = 0.01, max = 0.1, value = 0.01, step = 0.00001),
-      
+      width = 6
     ),
 
     # Output: Text Giving a Prediction
     mainPanel(
-      textOutput(outputId = "Pred"),
+      h3(textOutput(outputId = "Pred")),
       textOutput(outputId = "ShowStr"),
-      tableOutput("Table"),
-    )
+      tableOutput("Table"), width = 6
+    ),
   )
 )
 ```
@@ -430,4 +428,3 @@ https://blog.rstudio.com/2016/10/05/r-notebooks
 Adam Kardash, Patricia Kosseim, 2018, Responsible AI in Consumer Enterprise, integrate.ai
 
 Mercedes Ovejero Bruna, 2019, https://www.kaggle.com/mercheovejero/breast-cancer-analysis-real-machine-learning
-
