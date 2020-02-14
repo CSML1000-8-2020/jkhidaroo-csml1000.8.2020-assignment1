@@ -11,7 +11,7 @@ output:
 knitr::opts_chunk$set(echo = FALSE)
 ```
   
-## 6. Data Modeling - Neural Network
+## 4. D) Data Modeling - Neural Network
 
 ### Universal approximation theorem states that simple ariticial neural networks with only one hidden layer has the potentail to represent almost any contineous functions with nicely assigned parameters and a proper non-polymonial activation function such as signoid or rectified linear unit. 
 ### R has a package nnet, which can be used for Classification and Regression. We decided to model the data with a simple ANN.
@@ -24,7 +24,7 @@ library("nnet")
 ```{r}
 # load the data into a data frame
 library('readr')
-diagnosis_data_full = read.csv("diagnosis_data.csv")
+diagnosis_data_full = read.csv("./input/diagnosis_data.csv")
 
 # set up the function for data normalization
 normalize <- function(x) {return ((x - min(x)) / (max(x) - min(x)))}
@@ -63,7 +63,7 @@ fit_net<-nnet(c2~.,data=trainset,size=5, decay=5e-4, maxit=2000)
 fit_net
 ```
 
-## Model evaluation
+## 5. D) Model evaluation
 
 ```{r}
 # put the predicted values and original values into one single data frame
