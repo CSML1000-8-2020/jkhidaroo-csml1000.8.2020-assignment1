@@ -32,6 +32,7 @@ library('readr')
 library("nnet")
 # load the libary "purrr" for the ANN function map
 library("purrr")
+library('corrplot')
 ```
 
 ## 1. Business Understanding
@@ -134,6 +135,28 @@ plot(x = diagnosis_data_full$fractal_dimension_worst, y = diagnosis_data_full$di
 - These distributions appear similiar to the _mean.
 
 ## 3. Data Preparation
+
+#### Scale Data Set
+
+```{r, message = FALSE}
+# Remove Lines for the ID and Null X final Columns
+diagnosis_data_full <- diagnosis_data_full[2:32]
+
+# Encoding the target feature as factor
+diagnosis_data_full$diagnosis = factor(diagnosis_data_full$diagnosis,
+                                       levels = c('B', 'M'),
+                                       labels = c(0,1))
+
+# Scaling the dataset
+diagnosis_data_full[,2:31] <- scale(diagnosis_data_full[,2:31])
+```
+
+#### View Correlation Matrix
+
+```{r, message = FALSE}
+M <- cor(diagnosis_data_full[,2:31])
+corrplot(M, method="circle", type="full")
+```
 
 #### Split Data into Train and Test Sets
 
