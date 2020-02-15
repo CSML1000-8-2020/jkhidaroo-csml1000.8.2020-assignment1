@@ -33,6 +33,8 @@ library("nnet")
 # load the libary "purrr" for the ANN function map
 library("purrr")
 library('corrplot')
+library('data.table')
+library('caTools')
 ```
 
 ## 1. Business Understanding
@@ -75,6 +77,7 @@ show(full_file_name)
 ```{r, message = FALSE}
 # Load full data
 diagnosis_data_full = read.csv(full_file_name)
+breastcancer_data <- read.csv(full_file_name)
 
 # check data
 str(diagnosis_data_full)
@@ -379,17 +382,52 @@ cm_mean_worst
 ## 4. C) Data Modeling - Logistic Regression
 
 ```{r, message = FALSE}
-fit_lg <- trainControl(## 10-fold CV
-  method = "cv",
-  number = 10,
-  savePredictions = TRUE)
+# fit_lg <- trainControl(## 10-fold CV
+#   method = "cv",
+#   number = 10,
+#   savePredictions = TRUE)
+# 
+# diag_lg<-train(diagnosis ~ radius_mean + texture_mean + perimeter_mean + 
+#                             smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
+#                             symmetry_mean + fractal_dimension_mean + radius_worst + texture_worst + perimeter_worst + 
+#                             smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
+#                             symmetry_worst + fractal_dimension_worst,
+#                data=diagnosis_data_train,method="glm",family=binomial(), trControl=fit_lg)
 
-diag_lg<-train(diagnosis ~ radius_mean + texture_mean + perimeter_mean + 
-                            smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
-                            symmetry_mean + fractal_dimension_mean + radius_worst + texture_worst + perimeter_worst + 
-                            smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
-                            symmetry_worst + fractal_dimension_worst,
-               data=diagnosis_data_train,method="glm",family=binomial(), trControl=fit_lg)
+library('ranger')
+dim(breastcancer_data)
+head(breastcancer_data,6)
+summary(breastcancer_data)
+names(breastcancer_data)
+
+# summarize the class distribution
+percentage <- prop.table(table(breastcancer_data$diagnosis)) * 100
+cbind(freq=table(breastcancer_data$diagnosis), percentage=percentage)
+#remove id and x
+target <- ifelse(breastcancer_data$diagnosis=="B", 1, 0)
+target
+model_1 = select (breastcancer_data,-c(X,id,diagnosis))
+nobs <- nrow(model_1)
+nobs
+model_1
+model_2=scale(model_1)
+model_3<-data.frame(cbind(model_2,target))
+summary(model_3)
+
+#model start
+library(caTools)
+set.seed(123)
+split = sample.split(model_3$target, SplitRatio = 0.75)
+train_data = subset(model_3, split == TRUE)
+test_data = subset(model_3, split == FALSE)
+
+dim(train_data)
+
+Logistic_Model <- glm(target ~ perimeter_mean + 
+                        + smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
+                        symmetry_mean ,data=train_data, family = binomial)
+summary(Logistic_Model)
+
 ```
 
 ## 5. C) Data Evaluation - Logistic Regression
@@ -397,9 +435,22 @@ diag_lg<-train(diagnosis ~ radius_mean + texture_mean + perimeter_mean +
 #### Test Logistic Regression Model
 
 ```{r, message = FALSE}
-diag_lg_pre<-predict(diag_lg,diagnosis_data_test[,-c(1,1)])
-cm_lg<-confusionMatrix(diag_lg_pre,diagnosis_data_test$diagnosis)
-cm_lg
+# diag_lg_pre<-predict(diag_lg,diagnosis_data_test[,-c(1,1)])
+# cm_lg<-confusionMatrix(diag_lg_pre,diagnosis_data_test$diagnosis)
+# cm_lg
+predictTrain = predict(Logistic_Model, type="response")
+summary(predictTrain)
+tapply(predictTrain, train_data$target, mean)
+table(train_data$target, predictTrain > 0.5)
+# install.packages("ROCR")
+library(ROCR)
+ROCRpred = prediction(predictTrain, train_data$target)
+ROCRperf = performance(ROCRpred, "tpr", "fpr")
+plot(ROCRperf)
+plot(ROCRperf, colorize=TRUE)
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+predictTest = predict(Logistic_Model, type = "response", newdata = test_data)
+summary(predictTest)
 ```
 
 ## 4. D) Data Modeling - Neural Network
