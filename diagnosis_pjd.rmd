@@ -366,29 +366,10 @@ diag_kSVM <- confusionMatrix(diag_kSVM_pre, diagnosis_data_test$diagnosis)
 diag_kSVM
 ```
 
-#### Evaluation of the kFolds SVM Model
-
-```{r, message = FALSE}
-folds <- createFolds(diagnosis_data_train$diagnosis, k = 10)
-cv <- lapply(folds, function(x){
-  training_fold = diagnosis_data_train[-x, ]
-  test_fold = diagnosis_data_train[x, ]
-  diag_kSVM_model <- svm(formula = diagnosis_data_train$diagnosis ~.,
-                 data = training_fold[,-c(1)],
-                 type = 'C-classification',
-                 kernel = 'radial')
-  diag_kSVM_pre <- predict(diag_kSVM_model, test_fold[,-c(1)])
-  diag_kSVM <- confusionMatrix(test_fold[,-c(1)], diagnosis_data_test$diagnosis)
-  accuracy = (diag_kSVM[1,1] + diag_kSVM[2,2]) / (diag_kSVM[1,1] + diag_kSVM[2,2] + diag_kSVM[1,2] + diag_kSVM[2,1])
-  return(accuracy)
-})
-
-```
-
 
 ## 6. Deployment
 
-- Ethical Framework Questions: 
+- Ethical Framework Questions:  
   - Can a malicious actor infer information about individuals from your system?
   - Are you able to identify anomalous activity on your system that might indicate a security breach?
   - Do you have a plan to monitor for poor performance on individuals or subgroups?
