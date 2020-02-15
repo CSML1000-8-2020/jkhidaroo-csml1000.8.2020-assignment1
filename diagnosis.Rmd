@@ -1,7 +1,7 @@
 ---
-title: "CSML1000 Winter 2020, Group 8, Assignment1: Breast Cancer Diagnosis Prediction Model"
-author: "Steven Wang, Tarun Bagga, Paul Doucet, Jerry Khidaroo, "
-date: "2/15/2020"
+title: "Assignment1: Breast Cancer Diagnosis Prediction Model"
+author: "Jerry Khidaroo"
+date: "2/5/2020"
 output: 
   html_document:
   toc: TRUE
@@ -32,7 +32,7 @@ library('readr')
 
 ## 1. Business Understanding
 
-- Objective: The Objective of this project is to create a model from the Wisconsin Breast Cancer Data that would allow for a classification prediction of 'B' or 'M' (Benign or Malignant) when given results from tumor measurement studies.
+- Objective: The Objective of this project is to create a model from the Wisconsin Breast Cancer Data that would allow for a classification prediction of 'B' or 'M' (Benign or Malignant) when givehe results from a patient's imaging study.
 
 - Project Plan:
 
@@ -48,9 +48,12 @@ library('readr')
 ## 2. Data Understanding
 
 - Ethical Framework Questions: 
-  - Have you de-identified your data and taken measures to reduce the probability of reidentification? The data is de-identified.
-  - Will socially sensitive features like gender or ethnic background influence outputs? No demographic data is present.
-  - Are seemingly harmless features like location hiding proxies for socially sensitive features? No demographic data is present. 
+  - Have you de-identified your data and taken
+measures to reduce the probability of reidentification?
+  - Will socially sensitive features like gender or ethnic
+background influence outputs?
+  - Are seemingly harmless features like location hiding
+proxies for socially sensitive features?
 
 #### Get Data File
 
@@ -92,6 +95,29 @@ plot(y = diagnosis_data_full$diagnosis, x = diagnosis_data_full$concave.points_m
 
 ## 3. Data Preparation
 
+#### Scale Data Set
+
+```{r, message = FALSE}
+# Remove Lines for the ID and Null X final Columns
+diagnosis_data_full <- diagnosis_data_full[2:32]
+
+# Encoding the target feature as factor
+diagnosis_data_full$diagnosis = factor(diagnosis_data_full$diagnosis,
+                                       levels = c('B', 'M'),
+                                       labels = c(0,1))
+
+# Scaling the dataset
+diagnosis_data_full[,2:31] <- scale(diagnosis_data_full[,2:31])
+```
+
+#### View Correlation Matrix
+
+```{r, message = FALSE}
+M <- cor(diagnosis_data_full[,2:31])
+corrplot(M, method="circle", type="full")
+```
+
+
 #### Split Data into Train and Test Sets
 
 ```{r, message = FALSE}
@@ -114,7 +140,8 @@ prop.table(table(diagnosis_data_test$diagnosis))*100
 ## 4. A) Data Modeling - Naive Bayes
 
 ```{r, message = FALSE}
-diag_nb_model <- naiveBayes(diagnosis_data_train[,-c(1,2)], diagnosis_data_train$diagnosis)
+dt <- diagnosis_data_train[,-c(1)]
+diag_nb_model <- naiveBayes(diagnosis_data_train[,-c(1)], diagnosis_data_train$diagnosis)
 ```
 
 ##5. A) Data Evaluation - Naive Bayes
@@ -122,7 +149,7 @@ diag_nb_model <- naiveBayes(diagnosis_data_train[,-c(1,2)], diagnosis_data_train
 #### Test the Naive Bayes model.
 
 ```{r, message = FALSE}
-diag_nb_pre <- predict(diag_nb_model, diagnosis_data_test[,-c(1,2)])
+diag_nb_pre <- predict(diag_nb_model, diagnosis_data_test[,-c(1)])
 diag_cm_nb <- confusionMatrix(diag_nb_pre, diagnosis_data_test$diagnosis)
 diag_cm_nb
 ```
@@ -132,9 +159,9 @@ diag_cm_nb
 ## 4. B) Data Modeling - Random Forest
 
 - Ethical Framework Questions: 
-  - Does your use case require a more interpretable algorithm? Accuracy is more impotant than interpretability for this study.
-  - Should you be optimizing for a different outcome than accuracy to make your outcomes fairer? Since there is no demographic data, fairness would be hard to determine.
-  - Is it possible that a malicious actor has compromised training data and created misleading results? No. The data is from a reputable source.
+  - Does your use case require a more interpretable algorithm?
+  - Should you be optimizing for a different outcome than accuracy to make your outcomes fairer?
+  - Is it possible that a malicious actor has compromised training data and created misleading results?
 
 #### Build a Model based on Mean values
 
@@ -170,8 +197,8 @@ diag_worst_model
 
 #### Test the Mean Model
 
-```{r, message = FALSE}
-pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1,2)])
+```{r, message = TRUE}
+pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1)])
 cm_mean <- confusionMatrix(pre_mean_rf, diagnosis_data_test$diagnosis)
 cm_mean
 ```
@@ -179,7 +206,7 @@ cm_mean
 #### Test the SE Model
 
 ```{r, message = FALSE}
-pre_se_rf <- predict(diag_se_model, diagnosis_data_test[,-c(1,2)])
+pre_se_rf <- predict(diag_se_model, diagnosis_data_test[,-c(1)])
 cm_se <- confusionMatrix(pre_se_rf, diagnosis_data_test$diagnosis)
 cm_se
 ```
@@ -187,7 +214,7 @@ cm_se
 #### Test the Worst Model
 
 ```{r, message = FALSE}
-pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1,2)])
+pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1)])
 cm_worst <- confusionMatrix(pre_worst_rf, diagnosis_data_test$diagnosis)
 cm_worst
 ```
@@ -257,7 +284,7 @@ diag_worst_model
 #### Test the New Mean Model
 
 ```{r, message = FALSE}
-pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1,2)])
+pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1)])
 cm_mean <- confusionMatrix(pre_mean_rf, diagnosis_data_test$diagnosis)
 cm_mean
 ```
@@ -265,7 +292,7 @@ cm_mean
 #### Test the New Worst Model
 
 ```{r, message = FALSE}
-pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1,2)])
+pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1)])
 cm_worst <- confusionMatrix(pre_worst_rf, diagnosis_data_test$diagnosis)
 cm_worst
 ```
@@ -289,7 +316,7 @@ diag_mean_worst_model
 #### Test the Mean + Worst Model
 
 ```{r, message = FALSE}
-pre_mean_worst_rf <- predict(diag_mean_worst_model, diagnosis_data_test[,-c(1,2)])
+pre_mean_worst_rf <- predict(diag_mean_worst_model, diagnosis_data_test[,-c(1)])
 cm_mean_worst <- confusionMatrix(pre_mean_worst_rf, diagnosis_data_test$diagnosis)
 cm_mean_worst
 ```
@@ -319,7 +346,7 @@ diag_lg<-train(diagnosis ~ radius_mean + texture_mean + perimeter_mean +
 #### Test Logistic Regression Model
 
 ```{r, message = FALSE}
-diag_lg_pre<-predict(diag_lg,diagnosis_data_test[,-c(1,2)])
+diag_lg_pre<-predict(diag_lg,diagnosis_data_test[,-c(1)])
 cm_lg<-confusionMatrix(diag_lg_pre,diagnosis_data_test$diagnosis)
 cm_lg
 ```
@@ -327,17 +354,16 @@ cm_lg
 ## 6. Deployment
 
 - Ethical Framework Questions: 
-  - Can a malicious actor infer information about individuals from your system? No. There is no PII present.
+  - Can a malicious actor infer information about individuals from your system?
   - Are you able to identify anomalous activity on your system that might indicate a security breach?
   - Do you have a plan to monitor for poor performance on individuals or subgroups?
   - Do you have a plan to log and store historical predictions if a consumer requests access in the future?
   - Have you documented model retraining cycles and can you confirm that a subject’s data has been removed from models?
-
+  
 #### Define UI
 
 ```{r, message = FALSE}
 ui <- fluidPage(theme = shinytheme("lumen"),
-#ui <- fillPage(theme = shinytheme("lumen"),
   titlePanel("Diagnosis Predictor"),
   sidebarLayout(
     sidebarPanel(
@@ -356,15 +382,15 @@ ui <- fluidPage(theme = shinytheme("lumen"),
       sliderInput("concave.points_mean", label = "concave.points_mean:", min = 0, max = 25, value = 0, step = 0.00001),
       sliderInput("symmetry_mean", label = "symmetry_mean:", min = 0, max = 5, value = 0, step = 0.00001),
       sliderInput("fractal_dimension_mean", label = "fractal_dimension_mean:", min = 0.01, max = 0.1, value = 0.01, step = 0.00001),
-      width = 6
+      
     ),
 
     # Output: Text Giving a Prediction
     mainPanel(
-      h3(textOutput(outputId = "Pred")),
+      textOutput(outputId = "Pred"),
       textOutput(outputId = "ShowStr"),
-      tableOutput("Table"), width = 6
-    ),
+      tableOutput("Table"),
+    )
   )
 )
 ```
@@ -428,3 +454,4 @@ https://blog.rstudio.com/2016/10/05/r-notebooks
 Adam Kardash, Patricia Kosseim, 2018, Responsible AI in Consumer Enterprise, integrate.ai
 
 Mercedes Ovejero Bruna, 2019, https://www.kaggle.com/mercheovejero/breast-cancer-analysis-real-machine-learning
+
