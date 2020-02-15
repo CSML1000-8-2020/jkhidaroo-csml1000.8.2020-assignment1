@@ -46,7 +46,6 @@ library(caTools)
 - The Dataset used is obtained from: https://www.kaggle.com/uciml/breast-cancer-wisconsin-data
 
 
-## R Markdown
 ```{r}
 # Get dir of opened R file. (Note: Only works for RStudio)
 # wdir <- dirname(rstudioapi::getActiveDocumentContext()$path)
@@ -58,12 +57,12 @@ wdir <- "."
 breastcancer_data <- read.csv("data.csv")
 ```
 
-Description of the Data
+## 3 Description of the Data
 ```{r}
 str(breastcancer_data)
 ```
 
-See the Data
+## See the Data
 ```{r}
 show(breastcancer_data)
 ```
@@ -84,17 +83,22 @@ names(breastcancer_data)
 percentage <- prop.table(table(breastcancer_data$diagnosis)) * 100
 cbind(freq=table(breastcancer_data$diagnosis), percentage=percentage)
 ```
-Looking at Missing Values
+## Looking at Missing Values - checking for missing values in all the features. Seems to be issues in inly one colum X. This column either needs to be imputer or removed.
 ```{r}
 sapply(breastcancer_data,function(x) sum(is.na(x)))
 ```
 ```{r}
-
 library(Amelia)
+```
+
+## Missing values vs observed, Look at the plot for missing versus observed
+```{r}
+
 missmap(breastcancer_data, main = "Missing values vs observed")
 ```
 
 #remove id and x
+Now we can removed unwanted features and relabel the target featire as binary 0,1
 ```{r}
 target <- ifelse(breastcancer_data$diagnosis=="B", 1, 0)
 target
@@ -103,16 +107,12 @@ nobs <- nrow(model_1)
 nobs
 model_1
 ```
-Scaling Of Data
-```{r}
-
-```
-
+##Scaling Of Data - Since all the features have different scales we need to  makes ure we model features in same scale
 ```{r}
 model_2=scale(model_1)
 ```
 
-
+##Summarize the reults if adding the target back to data
 
 ```{r}
 model_3<-data.frame(cbind(model_2,target))
@@ -120,15 +120,12 @@ summary(model_3)
 ```
 
 
-#model starts
+## 5 Model Creation
 ```{r}
 set.seed(123)
 split = sample.split(model_3$target, SplitRatio = 0.80)
 train_data = subset(model_3, split == TRUE)
 test_data = subset(model_3, split == FALSE)
-
-dim(train_data)
-
 
 Logistic_Model <- glm(target ~ .,data=train_data, family = binomial)
 summary(Logistic_Model)
@@ -136,7 +133,7 @@ predictTrain = predict(Logistic_Model, type="response")
 summary(predictTrain)
 ```
 
-This is bad prediction so we need to pick features
+##This is bad prediction so we need to pick features
 We Look at sapply to select features
 ```{r}
 sapply(breastcancer_data, sd)
@@ -148,7 +145,7 @@ summary(Logistic_Model)
 predictTrain = predict(Logistic_Model, type="response")
 summary(predictTrain)
 ```
-Train the model
+## Train the model
 ```{r}
 tapply(predictTrain, train_data$target, mean)
 table(train_data$target, predictTrain > 0.5)
@@ -171,12 +168,16 @@ Prediction
 
 ```{r}
 predictTest = predict(Logistic_Model, type = "response", newdata = test_data)
+
+```
+
+##Summary of prediction
+```{r}
 summary(predictTest)
 ```
+##Assessing the predictive ability of the model
+In the steps above, we briefly evaluated the fitting of the model, now we would like to see how the model is doing when predicting y on a new set of data. By setting the parameter type='response', R will output probabilities in the form of P(y=1|X). Our decision boundary will be 0.5. If P(y=1|X) > 0.5 then y = 1 otherwise y=0. Note that for some applications different thresholds could be a better option
 
-
-```{r}
-```
 ```{r}
 predictTest <- ifelse(predictTest > 0.5,1,0)
 
