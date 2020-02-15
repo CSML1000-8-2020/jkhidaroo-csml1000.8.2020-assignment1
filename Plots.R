@@ -1,3 +1,10 @@
+# https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6262849/
+# NeuralNetTools package that can be used for the interpretation of supervised neural network models created in R. 
+# Functions in the package can be used to visualize a model using a neural network interpretation diagram, 
+# evaluate variable importance by disaggregating the model weights, 
+# and perform a sensitivity analysis of the response variables to changes in the input variables. 
+# Methods are provided for objects from many of the common neural network packages in R, 
+# including caret, neuralnet, nnet, and RSNNS
 install.packages("NeuralNetTools", dependencies = TRUE)
 library('NeuralNetTools')
 
