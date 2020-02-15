@@ -28,6 +28,11 @@ library('e1071')
 library('shiny')
 library('shinythemes')
 library('readr')
+# load the package "nnet" which provide the ANN modeling functionality
+library("nnet")
+# load the libary "purrr" for the ANN function map
+library("purrr")
+library('corrplot')
 ```
 
 ## 1. Business Understanding
@@ -60,19 +65,12 @@ proxies for socially sensitive features?
 - The Dataset used is obtained from: https://www.kaggle.com/uciml/breast-cancer-wisconsin-data
 
 ```{r, message = FALSE}
-# Get dir of opened R file. (Note: Only works for RStudio)
-# wdir <- dirname(rstudioapi::getActiveDocumentContext()$path)
-# Use relative path instead
-wdir <- "."
-# show(wdir)
-
 # Concatenate data file subdir and name.
-full_file_name <- paste(wdir,"/input/diagnosis_data.csv",sep="")
+full_file_name <- paste("./input/diagnosis_data.csv",sep="")
 show(full_file_name)
 ```
 
 #### Load and check data
-
 
 ```{r, message = FALSE}
 # Load full data
@@ -83,15 +81,53 @@ str(diagnosis_data_full)
 summary(diagnosis_data_full)
 ```
 
-#### Plot the Target against a few of the features to get a feel for the data
+#### Plot the Target against the _mean features to get a feel for their relationships
 
 ```{r, echo=FALSE}
-plot(y = diagnosis_data_full$diagnosis, x = diagnosis_data_full$radius_mean)
-plot(y = diagnosis_data_full$diagnosis, x = diagnosis_data_full$texture_mean)
-plot(y = diagnosis_data_full$diagnosis, x = diagnosis_data_full$concave.points_mean)
+plot(x = diagnosis_data_full$radius_mean, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$texture_mean, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$perimeter_mean, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$smoothness_mean, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$compactness_mean, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$concavity_mean, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$concave.points_mean, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$symmetry_mean, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$fractal_dimension_mean, y = diagnosis_data_full$diagnosis)
 ```
 
-- Looks like in general 'M' gives higher features values than 'B'
+- From these plots the we see that the radius_mean, perimeter_mean, concavity_mean, and concave.points_mean show more pronounced relationships to the target. The texture_mean, smoothness_mean, compactness_mean, and symmetry_mean show a lessor tendency. The fractal_dimension_mean does not appear to be related.
+
+#### Plot the Target against the _se features to get a feel for their relationships
+
+```{r, echo=FALSE}
+plot(x = diagnosis_data_full$radius_se, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$texture_se, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$perimeter_se, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$smoothness_se, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$compactness_se, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$concavity_se, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$concave.points_se, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$symmetry_se, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$fractal_dimension_se, y = diagnosis_data_full$diagnosis)
+```
+
+- The Standard Error of the mean features by themselves do not appear to have a relationship to the Target.
+
+#### Plot the Target against the _worst features to get a feel for their relationships
+
+```{r, echo=FALSE}
+plot(x = diagnosis_data_full$radius_worst, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$texture_worst, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$perimeter_worst, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$smoothness_worst, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$compactness_worst, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$concavity_worst, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$concave.points_worst, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$symmetry_worst, y = diagnosis_data_full$diagnosis)
+plot(x = diagnosis_data_full$fractal_dimension_worst, y = diagnosis_data_full$diagnosis)
+```
+
+- These distributions appear similiar to the _mean.
 
 ## 3. Data Preparation
 
@@ -108,6 +144,15 @@ diagnosis_data_full$diagnosis = factor(diagnosis_data_full$diagnosis,
 
 # Scaling the dataset
 diagnosis_data_full[,2:31] <- scale(diagnosis_data_full[,2:31])
+str(diagnosis_data_full)
+# Encoding the target feature as factor
+# diagnosis_data_full$diagnosis = factor(diagnosis_data_full$diagnosis,
+#                                        levels = c('B', 'M'),
+#                                        labels = c(0,1))
+
+# Scaling the dataset
+diagnosis_data_full[,2:31] <- scale(diagnosis_data_full[,2:31])
+str(diagnosis_data_full)
 ```
 
 #### View Correlation Matrix
@@ -116,7 +161,6 @@ diagnosis_data_full[,2:31] <- scale(diagnosis_data_full[,2:31])
 M <- cor(diagnosis_data_full[,2:31])
 corrplot(M, method="circle", type="full")
 ```
-
 
 #### Split Data into Train and Test Sets
 
@@ -135,7 +179,14 @@ prop.table(table(diagnosis_data_test$diagnosis))*100
 
 - This split is fine as it gives greater importance to 'M' outcomes for training
 
-- Start with a simple Naive Bayes model
+## 4. Data Modeling
+
+- Ethical Framework Questions: 
+  - Does your use case require a more interpretable algorithm? Accuracy is more impotant than interpretability for this study.
+  - Should you be optimizing for a different outcome than accuracy to make your outcomes fairer? Since there is no demographic data, fairness would be hard to determine.
+  - Is it possible that a malicious actor has compromised training data and created misleading results? No. The data is from a reputable source.
+
+- Start with a simple Naive Bayes model to get a baseline result
 
 ## 4. A) Data Modeling - Naive Bayes
 
@@ -167,7 +218,7 @@ diag_cm_nb
 
 ```{r, message = FALSE}
 diag_mean_model <- randomForest(factor(diagnosis) ~ radius_mean + texture_mean + perimeter_mean + 
-                          + smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
+                            smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
                             symmetry_mean + fractal_dimension_mean,
                          data = diagnosis_data_train)
 diag_mean_model
@@ -177,7 +228,7 @@ diag_mean_model
 
 ```{r, message = FALSE}
 diag_se_model <- randomForest(factor(diagnosis) ~ radius_se + texture_se + perimeter_se + 
-                          + smoothness_se + compactness_se + concavity_se + concave.points_se +
+                            smoothness_se + compactness_se + concavity_se + concave.points_se +
                             symmetry_se + fractal_dimension_se,
                          data = diagnosis_data_train)
 diag_se_model
@@ -187,7 +238,7 @@ diag_se_model
 
 ```{r, message = FALSE}
 diag_worst_model <- randomForest(factor(diagnosis) ~ radius_worst + texture_worst + perimeter_worst + 
-                          + smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
+                            smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
                             symmetry_worst + fractal_dimension_worst,
                          data = diagnosis_data_train)
 diag_worst_model
@@ -197,8 +248,8 @@ diag_worst_model
 
 #### Test the Mean Model
 
-```{r, message = TRUE}
-pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1)])
+```{r, message = FALSE}
+pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1,1)])
 cm_mean <- confusionMatrix(pre_mean_rf, diagnosis_data_test$diagnosis)
 cm_mean
 ```
@@ -206,7 +257,7 @@ cm_mean
 #### Test the SE Model
 
 ```{r, message = FALSE}
-pre_se_rf <- predict(diag_se_model, diagnosis_data_test[,-c(1)])
+pre_se_rf <- predict(diag_se_model, diagnosis_data_test[,-c(1,1)])
 cm_se <- confusionMatrix(pre_se_rf, diagnosis_data_test$diagnosis)
 cm_se
 ```
@@ -214,7 +265,7 @@ cm_se
 #### Test the Worst Model
 
 ```{r, message = FALSE}
-pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1)])
+pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1,1)])
 cm_worst <- confusionMatrix(pre_worst_rf, diagnosis_data_test$diagnosis)
 cm_worst
 ```
@@ -284,7 +335,7 @@ diag_worst_model
 #### Test the New Mean Model
 
 ```{r, message = FALSE}
-pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1)])
+pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1,1)])
 cm_mean <- confusionMatrix(pre_mean_rf, diagnosis_data_test$diagnosis)
 cm_mean
 ```
@@ -292,7 +343,7 @@ cm_mean
 #### Test the New Worst Model
 
 ```{r, message = FALSE}
-pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1)])
+pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1,1)])
 cm_worst <- confusionMatrix(pre_worst_rf, diagnosis_data_test$diagnosis)
 cm_worst
 ```
@@ -305,9 +356,9 @@ cm_worst
 
 ```{r, message = FALSE}
 diag_mean_worst_model <- randomForest(factor(diagnosis) ~ radius_mean + texture_mean + perimeter_mean + 
-                          + smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
+                            smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
                             symmetry_mean + fractal_dimension_mean + radius_worst + texture_worst + perimeter_worst + 
-                          + smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
+                            smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
                             symmetry_worst + fractal_dimension_worst,
                          data = diagnosis_data_train)
 diag_mean_worst_model
@@ -316,7 +367,7 @@ diag_mean_worst_model
 #### Test the Mean + Worst Model
 
 ```{r, message = FALSE}
-pre_mean_worst_rf <- predict(diag_mean_worst_model, diagnosis_data_test[,-c(1)])
+pre_mean_worst_rf <- predict(diag_mean_worst_model, diagnosis_data_test[,-c(1,1)])
 cm_mean_worst <- confusionMatrix(pre_mean_worst_rf, diagnosis_data_test$diagnosis)
 cm_mean_worst
 ```
@@ -334,9 +385,9 @@ fit_lg <- trainControl(## 10-fold CV
   savePredictions = TRUE)
 
 diag_lg<-train(diagnosis ~ radius_mean + texture_mean + perimeter_mean + 
-                          + smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
+                            smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
                             symmetry_mean + fractal_dimension_mean + radius_worst + texture_worst + perimeter_worst + 
-                          + smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
+                            smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
                             symmetry_worst + fractal_dimension_worst,
                data=diagnosis_data_train,method="glm",family=binomial(), trControl=fit_lg)
 ```
@@ -346,12 +397,96 @@ diag_lg<-train(diagnosis ~ radius_mean + texture_mean + perimeter_mean +
 #### Test Logistic Regression Model
 
 ```{r, message = FALSE}
-diag_lg_pre<-predict(diag_lg,diagnosis_data_test[,-c(1)])
+diag_lg_pre<-predict(diag_lg,diagnosis_data_test[,-c(1,1)])
 cm_lg<-confusionMatrix(diag_lg_pre,diagnosis_data_test$diagnosis)
 cm_lg
 ```
 
+## 4. D) Data Modeling - Neural Network
+
+### Universal approximation theorem states that simple ariticial neural networks with only one hidden layer has the potentail to represent almost any contineous functions with nicely assigned parameters and a proper non-polymonial activation function such as signoid or rectified linear unit. 
+### R has a package nnet, which can be used for Classification and Regression. We decided to model the data with a simple ANN.
+
+```{r}
+# load the package "nnet" which provide the ANN modeling functionality
+library("nnet")
+```
+## preprocess the data for modeling
+```{r}
+# set up the function for data normalization
+normalize <- function(x) {return ((x - min(x)) / (max(x) - min(x)))}
+
+# normalize the numeric data from column 3 to column 32
+maxmindf <- as.data.frame(lapply(diagnosis_data_full[3:31], normalize))
+
+# normalize the factor column, transform M -> -1 and B -> 1
+
+# set up the mapping function to use
+myMapper <- function(x) { if(x=="M") {temp <- -1} else {temp <- 1}; return (temp) }
+
+# pull out column #2 which is the factor column for prediction and transform/normalize it.
+factors <- diagnosis_data_full[2:2]
+factors$c2 <- unlist(map(diagnosis_data_full$diagnosis, myMapper))
+nfactors <- as.data.frame(lapply(factors[2:2], normalize))
+
+# combine the normalized input and output columns into one data frame 
+cleanData <- cbind(nfactors, maxmindf)
+
+# split the data into trainset and testset
+trainset <- cleanData[1:426,]
+testset <- cleanData[427:569,]
+```
+
+#### Data modeling with the cleaned and normalized data set
+
+```{r}
+# set the seed with nice prime number, so make the training re-producible
+set.seed(887)
+# we use 5 neurons in the hidden layer
+fit_net<-nnet(c2~.,data=trainset,size=5, decay=5e-4, maxit=2000)
+fit_net
+```
+
+## 5. D) Model evaluation - Neural Network
+
+```{r}
+# put the predicted values and original values into one single data frame
+predictions <- data.frame(cbind(round(predict(fit_net, testset),digits=0), testset$c2))
+# add a column "d", to represent the difference with the predicted and the actual
+predictions$d <- (predictions$X1 - predictions$X2)
+head(predictions,n=5)
+# compute the confusionMatrix
+table(predictions$X1,predictions$X2)
+```
+
+## 4. E) Data Modeling - kernelSVM
+
+```{r, message = FALSE}
+dt <- diagnosis_data_train[,-c(1)]
+diag_kSVM_model <- svm(formula = diagnosis_data_train$diagnosis ~.,
+                 data = diagnosis_data_train[,-c(1)],
+                 type = 'C-classification',
+                 kernel = 'radial')
+```
+
+## 5. E) Data Evaluation - kernelSVM
+
+#### Test the kernel SVM model.
+
+```{r, message = FALSE}
+diag_kSVM_pre <- predict(diag_kSVM_model, diagnosis_data_test[,-c(1)])
+diag_kSVM <- confusionMatrix(diag_kSVM_pre, diagnosis_data_test$diagnosis)
+diag_kSVM
+```
+
 ## 6. Deployment
+
+- Explanation:
+  - Explain the limitations of your analysis and identify possible further steps you could take.
+  
+  - To Non-Technical Audiences
+  - Write a short summary of your analysis, explaining how your model works and how it performs.
+  - Briefly explain the factors that contributed to malignant vs benign tumor identification.
 
 - Ethical Framework Questions: 
   - Can a malicious actor infer information about individuals from your system?
