@@ -501,29 +501,56 @@ cm_kSVM <- confusionMatrix(diag_kSVM_pre, diag_data_scaled_test$diagnosis)
 cm_kSVM
 ```
 
-#### Model Analysis and Selection
+## 6. Final Model Analysis and Selection
+
+#### Cost Analysis
+
+This is a situation where we want to predict cancer cells in a patient based on the MRI done in the Hospital. Previously this kind of prediction was done using the historical data of previous cancer patients over the years and compare them with current data points. By using feature selection to filter out irrelevant features and using model pipeline to go through numerous features we select the best machine learning models based on measures such as specifity and sensitivity. Two models we focus on primarily are and Decision Tree abd SVM as they give best predictive results. The predictions we are focused on when working with cancer use cases.
+Before latest machine learning techniques this was done with around 33 variables based on historical data for previous patients. Now the number of features has exponentially increased due to various kinds of data being used such as clinical data, genomic data of patients and tumor related data. The issue here again same as the fraud problem of imbalanced Dataset.  This is a common problem with these use cases which is an imbalance of predictive events with parameters (too few events, too many parameters), overtraining, and a lack of external validation or testing.  What is important in this case is the sample per ratio of training set. Size and variety if training set is important. Since we want to predict a minority class of values, we need a Representative sample of the training and test data.  It is possible that we do not fully utilize the representative sample and model uses bias or a selected set of training data and keeps training on it. What ends up happening is that Training too many times on too few examples with too little variety leads to the phenomenon of over-training or simply training on noise. When it is asked to predict new target then the model fails spectacularly.
+Just using accuracy as a measure would not yield good results as we have imbalanced dataset. Generally, this problem deals with the trade-off between recall (percent of truly positive instances that were classified as such) and precision (percent of positive classifications that are truly positive). Since we always want to detect instances of a minority class in our case cancer cells out of set of good cells in our body. It is usually more expensive to miss a positive cancer cells than to falsely label a cell which is not malcontent to be tumor cells. It is best to avoid Accuracy and use measures such as Precision and AUROC.
 
 ```{r, message = FALSE}
 
 ```
 
-## 6. Deployment
+#### Model Comparison
+
+```{r, message = FALSE}
+
+```
+
+#### Selected MModel: 
+
+## 7. Deployment
 
 #### Summary Explanation
 
-  - Limitations of our analysis 
-  - Further steps we could take.
+- Limitations of our analysis: 
+  - Our model is trained on a relatively small dataset provided by a single institution. Its ability to predict dianoses could be biased depending on the demographic population that make use of this institution's facilities. This demographic data was not provided with the dataset.
+  - Our analysis considered 4 Machine learning algorithms or the many that are available.
   
-  - To Non-Technical Audiences:
-  - Summary of your analysis: [explain how our model works and how it performs.]
-  - Factors that contributed to malignant vs benign tumor identification:
+- Further steps we could take: 
+  - A more comprehensive study could be completed is similiar data could be obtain from other diverse sources around the world.
+  - Given time and resources, additional algorithms and optimization techniques could be explored to improve the performance.
+  
+- Explanation of Model:
+  - Our model was arrived at by analysing the 30 columns of data included with the dataset. The different features included as columns were derived from measurements taken on tumors of actual patients who underwent a radiologic study.  The features included size measurements such as radius, area, perimeter, etc. as well as shape and density measurements. The model analysed the features to determine which ones were strongly corelated to the outcome of the dianosis.
+  - We identified 5 of the 31 columns as the most important determining factors.
+  - The Factors that contributed to malignant vs benign tumor identification were the following columns: 
+    - concavity_mean: mean of severity of concave portions of the contour
+    - concave points_mean: mean for number of concave portions of the contour
+    - radius_worst: "worst" or largest mean value for mean of distances from center to points on the perimeter
+    - concavity_points_worst: "worst" or largest mean value for number of concave portions of the contour
+    - perimeter_worst: (Discription not given)
+  - Using these 5 columns as our feature metrics we investigated 4 different machine learning algorihtms to determine which one provides the best solution for predicting a diagnostic outcome outcome, i.e. Whether a tumor is Benign or Malignant.
+  - The model chosen was able to predict with an accucuracy of 97.9 %.
 
 - Ethical Framework Questions: 
   - Can a malicious actor infer information about individuals from your system? No. There is no PII present.
-  - Are you able to identify anomalous activity on your system that might indicate a security breach?
-  - Do you have a plan to monitor for poor performance on individuals or subgroups?
-  - Do you have a plan to log and store historical predictions if a consumer requests access in the future?
-  - Have you documented model retraining cycles and can you confirm that a subject’s data has been removed from models?
+  - Are you able to identify anomalous activity on your system that might indicate a security breach? This would need to be considered for each specific deployment.
+  - Do you have a plan to monitor for poor performance on individuals or subgroups? N/A since No demographic data is present.
+  - Do you have a plan to log and store historical predictions if a consumer requests access in the future? N/A since No demographic data is present.
+  - Have you documented model retraining cycles and can you confirm that a subject’s data has been removed from models? N/A since No demographic data is present.
 
 ## References
 
