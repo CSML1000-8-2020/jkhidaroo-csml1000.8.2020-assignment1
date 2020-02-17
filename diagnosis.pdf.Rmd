@@ -1,0 +1,543 @@
+---
+title: "CSML1000 Winter 2020, Group 8, Assignment1: Breast Cancer Diagnosis Prediction Model"
+author: "Steven Wang, Tarun Bagga, Paul Doucet, Jerry Khidaroo, "
+date: "2/15/2020"
+geometry: margin=2cm
+output: 
+  pdf_document:
+    # fig_width: 7
+    # fig_height: 6
+    fig_crop: TRUE
+    toc: TRUE
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Libraries
+
+```{r, message = FALSE}
+# Load packages
+library('ggplot2') # visualization
+library('ggthemes') # visualization
+library('scales') # visualization
+library('dplyr') # data manipulation
+library('mice') # imputation
+library('randomForest') # classification algorithm
+library('caret')
+library('e1071')
+library('shiny')
+library('shinythemes')
+library('readr')
+# load the package "nnet" which provide the ANN modeling functionality
+library("nnet")
+# load the libary "purrr" for the ANN function map
+library("purrr")
+library('corrplot')
+library('data.table')
+library('caTools')
+# library(klaR)
+```
+
+## 1. Business Understanding
+
+- Objective: The Objective of this project is to create a model from the Wisconsin Breast Cancer Data that would allow for a classification prediction of 'B' or 'M' (Benign or Malignant) when given results from tumor measurement studies.
+
+- Project Plan:
+
+- Business Success Criteria: A successful project outcome would be achieved if a model is created that can predict the 'B' or 'M' outcome with a high degree of accuracy.
+
+- Ethical Framework Questions: 
+  - How could your system negatively impact individuals? The greatest negative impact would occur for a false positive diagnosis since this could delay treatment and in a life threatening scenario. A false negative would also be negatively impactful but to a lessor degree.
+  - Who is most vulnerable and why? The most vulnerable would be patients with a 'M' dianosis not detectable by the model.
+  - How much error in predictions can your business accept for this use case? False positives need to be minimised as much as posible. Minimsing False negatives are second in priority.
+  - Will you need to explain which input factors had the greatest influence on outputs? Yes. Being able to explain which features have the most influence on outcome is very desirable.
+  - Do you need PII or can you provide group-level data? The analysis requires patient level data however any PII can be anonymised
+
+## 2. Data Understanding
+
+- Ethical Framework Questions: 
+  - Have you de-identified your data and taken measures to reduce the probability of reidentification? The data is de-identified.
+  - Will socially sensitive features like gender or ethnic background influence outputs? No demographic data is present.
+  - Are seemingly harmless features like location hiding proxies for socially sensitive features? No demographic data is present. 
+
+#### Get Data File
+
+- The Dataset used is obtained from: https://www.kaggle.com/uciml/breast-cancer-wisconsin-data
+
+```{r, message = FALSE}
+# Concatenate data file subdir and name.
+full_file_name <- paste("./input/diagnosis_data.csv",sep="")
+show(full_file_name)
+```
+
+#### Load and check data
+
+```{r, message = FALSE}
+# Load full data
+diagnosis_data_full = read.csv(full_file_name)
+breastcancer_data <- read.csv(full_file_name)
+
+# check data
+str(diagnosis_data_full)
+summary(diagnosis_data_full)
+# head(diagnosis_data_full)
+```
+
+## 3. Data Preparation
+
+#### a) Data Modification
+
+#### Column Removals
+
+```{r, message = FALSE}
+# Remove Lines for the ID and Null X final Columns
+diagnosis_data_full <- diagnosis_data_full[2:32]
+```
+
+#### Scale Data Set 
+
+```{r, message = FALSE}
+# Encoding the target feature as factor
+# diagnosis_data_full$diagnosis = factor(diagnosis_data_full$diagnosis,
+#                                        levels = c('B', 'M'),
+#                                        labels = c(0,1))
+
+# Scaling the dataset for models that require it
+diagnosis_data_scaled <- diagnosis_data_full
+diagnosis_data_scaled[,2:31] <- scale(diagnosis_data_scaled[,2:31])
+str(diagnosis_data_scaled)
+names(diagnosis_data_full)
+```
+
+#### Split Data into Train and Test Sets
+
+```{r, message = FALSE}
+# Split the data into a train set and a test set
+diagnosis_data_train <- diagnosis_data_full[1:426,]
+diagnosis_data_test <- diagnosis_data_full[427:569,]
+# Split the scaled version as well
+diag_data_scaled_train <- diagnosis_data_scaled[1:426,]
+diag_data_scaled_test <- diagnosis_data_scaled[427:569,]
+```
+
+#### Check diagnosis target variable
+
+```{r, message = FALSE}
+prop.table(table(diagnosis_data_train$diagnosis))*100
+prop.table(table(diagnosis_data_test$diagnosis))*100
+```
+
+- This simple split is fine as it gives greater importance to 'M' outcomes for training which is desirable for the high sensitivity needed.
+- The target variable distribution also confirms that class imbalance is not an issue.
+
+#### b) Feature Engineering
+
+#### View Correlation Matrix to explore highly correlated features
+
+```{r, message = FALSE}
+M <- cor(diagnosis_data_train[,2:31])
+# 24) perimeter_worst, 19) concave.points_worst, 22) radius_worst, 9) concave.points_mean, 8) concavity_mean
+# M <- cor(diagnosis_data_full[24, 19, 22, 9, 8])
+corrplot(M, method="circle", type="full")
+```
+
+#### Check Feature variables distribution vs Target
+
+```{r, message = FALSE}
+
+featurePlot(x = diagnosis_data_train[, 2:31], 
+            y = diagnosis_data_train$diagnosis, 
+            plot = "density", 
+            strip=strip.custom(par.strip.text=list(cex=.7)),
+            scales = list(x = list(relation="free"), 
+                          y = list(relation="free")), layout = c(6, 5), adjust = 1.5, pch = "|", auto.key=list(columns=2))
+```
+
+- Looking at this output we can see that the following features show higher density dirvergence w.r.t. the 2 target classes:  
+  - "compactness_worst"
+  - "concavity_worst"
+  - "concave.points_worst"
+  - "radius_worst"
+  - "texture_worst"
+  - "perimeter_worst"
+  - "area_worst"
+  - "concavity_mean"
+  - "concave.points_mean"
+  - "radius_mean"
+  - "texture_mean"
+  - "perimeter_mean"
+  - "area_mean"
+  - "compactness_mean"     
+
+#### Try a recursive feature elimination check - Feature Selection Method 1
+```{r, message = FALSE}
+set.seed(100)
+options(warn=-1)
+
+subsets <- c(1:5, 15, 20, 25, 31)
+
+ctrl <- rfeControl(functions = rfFuncs,
+                   method = "repeatedcv",
+                   repeats = 5,
+                   verbose = FALSE)
+
+lmProfile <- rfe(x=diagnosis_data_train[, 2:31], y=diagnosis_data_train$diagnosis,
+                 sizes = subsets,
+                 rfeControl = ctrl)
+
+lmProfile
+```
+
+- Key Output: The top 5 variables (out of 25): perimeter_worst, area_worst, radius_worst, concave.points_worst, texture_worst
+- These 5 were also identified in the Feature variables distribution check. It is possible that other suitable variables were left out due to strong correlations.
+
+## 4. Data Modeling
+
+- Ethical Framework Questions: 
+  - Does your use case require a more interpretable algorithm? Accuracy is more impotant than interpretability for this study.
+  - Should you be optimizing for a different outcome than accuracy to make your outcomes fairer? Since there is no demographic data, fairness would be hard to determine.
+  - Is it possible that a malicious actor has compromised training data and created misleading results? No. The data is from a reputable source.
+
+<!-- - Start with a simple Naive Bayes model to get a baseline result -->
+
+<!-- ## 4. A) Data Modeling - Naive Bayes -->
+
+<!-- ```{r, message = FALSE} -->
+<!-- diag_nb_model <- naiveBayes(diagnosis_data_train[,-c(1,2)], diagnosis_data_train$diagnosis) -->
+<!-- ``` -->
+
+<!-- ##5. A) Data Evaluation - Naive Bayes -->
+
+<!-- #### Test the Naive Bayes model. -->
+
+<!-- ```{r, message = FALSE} -->
+<!-- diag_nb_pre <- predict(diag_nb_model, diagnosis_data_test[,-c(1,1)]) -->
+<!-- diag_cm_nb <- confusionMatrix(diag_nb_pre, diagnosis_data_test$diagnosis) -->
+<!-- diag_cm_nb -->
+<!-- ``` -->
+
+## 4. A) Data Modeling - Random Forest
+
+#### Build a Random Forest Model based on all values to start.
+#### This gives us a model that is resistant to overfitting.
+
+```{r, message = FALSE}
+diag_rf_model <- randomForest(factor(diagnosis) ~ radius_mean + texture_mean + perimeter_mean + 
+                            smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
+                            symmetry_mean + fractal_dimension_mean + 
+                            radius_se + texture_se + perimeter_se + 
+                            smoothness_se + compactness_se + concavity_se + concave.points_se + 
+                            symmetry_se + fractal_dimension_se + 
+                            radius_worst + texture_worst + perimeter_worst + 
+                            smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
+                            symmetry_worst + fractal_dimension_worst,
+                         data = diagnosis_data_train)
+diag_rf_model
+```
+
+## 5. A) Data Evaluation - Random Forest
+
+#### Test the Random Forest Model
+
+```{r, message = FALSE}
+pre_rf <- predict(diag_rf_model, diagnosis_data_test[,-c(1,1)])
+cm_rf <- confusionMatrix(pre_rf, diagnosis_data_test$diagnosis)
+cm_rf
+```
+
+#### Feature Engineering Continued - Feature Selection Method 2
+
+#### Examine the Random Forest Model for feature importance
+
+```{r, message = FALSE}
+# Get importance
+importance    <- importance(diag_rf_model)
+varImportance <- data.frame(Variables = row.names(importance), 
+                            Importance = round(importance[ ,'MeanDecreaseGini'],2))
+
+# Create a rank variable based on importance
+rankImportance <- varImportance %>%
+  mutate(Rank = paste0('#',dense_rank(desc(Importance))))
+
+# Use ggplot2 to visualize the relative importance of variables
+ggplot(rankImportance, aes(x = reorder(Variables, Importance),  y = Importance, fill = Importance)) +
+    geom_bar(stat='identity') + 
+    geom_text(aes(x = Variables, y = 0.5, label = Rank), hjust=0, vjust=0.55, size = 4, colour = 'red') +
+    labs(x = 'Variables') + coord_flip() +  theme_few()
+```
+
+- Shows the following 5 features as most important: perimeter_worst, concave.points_worst,radius_worst, concave.points_mean, concavity_mean
+  - Again, these 5 were also identified in the Feature variables distribution check.
+  - Since it appears that this method considered a wider range of variables we will proceed with this outcome.
+  
+#### Features Selected: 24) perimeter_worst, 19) concave.points_worst, 22) radius_worst, 9) concave.points_mean, 8) concavity_mean
+
+- Now lets try a Logistic Regression Model using those top 5 features
+
+## 4. B) Data Modeling - Logistic Regression
+
+```{r, message = FALSE}
+
+library('ranger')
+dim(breastcancer_data)
+# head(breastcancer_data,6)
+# summary(breastcancer_data)
+names(breastcancer_data)
+
+# summarize the class distribution
+percentage <- prop.table(table(breastcancer_data$diagnosis)) * 100
+cbind(freq=table(breastcancer_data$diagnosis), percentage=percentage)
+#remove id and x
+target <- ifelse(breastcancer_data$diagnosis=="B", 1, 0)
+#head(target)
+model_1 = select (breastcancer_data,-c(X,id,diagnosis))
+nobs <- nrow(model_1)
+nobs
+head(model_1)
+model_2=scale(model_1)
+model_3<-data.frame(cbind(model_2,target))
+summary(model_3)
+
+#model start
+library(caTools)
+set.seed(123)
+split = sample.split(model_3$target, SplitRatio = 0.75)
+train_data = subset(model_3, split == TRUE)
+test_data = subset(model_3, split == FALSE)
+
+dim(train_data)
+
+# Logistic_Model <- glm(target ~ perimeter_mean + 
+#                         + smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
+#                         symmetry_mean ,data=train_data, family = binomial)
+Logistic_Model <- glm(target ~ perimeter_worst + concave.points_worst + radius_worst + concave.points_mean + concavity_mean, 
+                      data=train_data, family = binomial)
+
+summary(Logistic_Model)
+```
+
+## 5. B) Data Evaluation - Logistic Regression
+
+#### Test Logistic Regression Model
+
+```{r, message = FALSE}
+predictTrain = predict(Logistic_Model, type="response")
+summary(predictTrain)
+tapply(predictTrain, train_data$target, mean)
+table(train_data$target, predictTrain > 0.5)
+# lg_cm <- confusionMatrix(table(train_data$target, predictTrain > 0.5))
+# lg_cm
+# install.packages("ROCR")
+library(ROCR)
+ROCRpred = prediction(predictTrain, train_data$target)
+ROCRperf = performance(ROCRpred, "tpr", "fpr")
+plot(ROCRperf)
+plot(ROCRperf, colorize=TRUE)
+plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
+predictTest = predict(Logistic_Model, type = "response", newdata = test_data)
+summary(predictTest)
+
+library('MLmetrics')
+pred <- ifelse(Logistic_Model$fitted.values<0.5, 0, 1)
+cm_lg <- ConfusionMatrix(y_pred = pred, y_true = train_data$target)
+cm_lg2 <- confusionMatrix(cm_lg)
+cm_lg2
+```
+
+- Next lets try a Logistic Neural Network using those top 5 features
+
+## 4. C) Data Modeling - Neural Network
+
+### Universal approximation theorem states that simple ariticial neural networks with only one hidden layer has the potentail to represent almost any contineous functions with nicely assigned parameters and a proper non-polymonial activation function such as signoid or rectified linear unit. 
+
+### R has a package nnet, which can be used for Classification and Regression. We decided to try a simple ANN model.
+
+```{r}
+# load the package "nnet" which provide the ANN modeling functionality
+library("nnet")
+```
+## preprocess the data for modeling
+```{r}
+# load the data into a data frame
+library('readr')
+diagnosis_data_full = read.csv("./input/diagnosis_data.csv")
+
+# set up the function for data normalization
+normalize <- function(x) {return ((x - min(x)) / (max(x) - min(x)))}
+
+# normalize the numeric data from column 3 to column 32
+maxmindf <- as.data.frame(lapply(diagnosis_data_full[3:32], normalize))
+
+# normalize the factor column, transform M -> -1 and B -> 1
+
+# set up the mapping function to use
+myMapper <- function(x) { if(x=="M") {temp <- -1} else {temp <- 1}; return (temp) }
+
+# load the libary "purrr" for the function map
+library("purrr")
+
+# pull out column #2 which is the factor column for prediction and transform/normalize it.
+factors <- diagnosis_data_full[2:2]
+factors$c2 <- unlist(map(diagnosis_data_full$diagnosis, myMapper))
+nfactors <- as.data.frame(lapply(factors[2:2], normalize))
+
+# combine the normalized input and output columns into one data frame 
+cleanData <- cbind(nfactors, maxmindf)
+
+# split the data into trainset and testset
+trainset <- cleanData[1:426,]
+testset <- cleanData[427:569,]
+```
+
+<!-- ## Data modeling with the cleaned and normalized data set -->
+
+<!-- ```{r} -->
+<!-- # set the seed with nice prime number, so make the training re-producible -->
+<!-- set.seed(887) -->
+<!-- # we use 5 neurons in the hidden layer -->
+<!-- fit_net<-nnet(c2~.,data=trainset,size=5, decay=5e-4, maxit=2000) -->
+<!-- fit_net -->
+<!-- ``` -->
+
+<!-- ## 5. D) Model evaluation -->
+
+<!-- ```{r} -->
+<!-- # put the predicted values and original values into one single data frame -->
+<!-- predictions <- data.frame(cbind(round(predict(fit_net, testset),digits=0), testset$c2)) -->
+<!-- # add a column "d", to represent the difference with the predicted and the actual -->
+<!-- predictions$d <- (predictions$X1 - predictions$X2) -->
+<!-- head(predictions,n=5) -->
+<!-- # compute the confusionMatrix -->
+<!-- table(predictions$X1,predictions$X2) -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6262849/ -->
+<!-- # NeuralNetTools package that can be used for the interpretation of supervised neural network models created in R.  -->
+<!-- # Functions in the package can be used to visualize a model using a neural network interpretation diagram,  -->
+<!-- # evaluate variable importance by disaggregating the model weights,  -->
+<!-- # and perform a sensitivity analysis of the response variables to changes in the input variables.  -->
+<!-- # Methods are provided for objects from many of the common neural network packages in R,  -->
+<!-- # including caret, neuralnet, nnet, and RSNNS -->
+<!-- # install.packages("NeuralNetTools", dependencies = TRUE) -->
+<!-- library('NeuralNetTools') -->
+
+<!-- NID <- NeuralNetTools::plotnet(fit_net) -->
+<!-- NID -->
+<!-- importantce_analysis_garson <-garson(fit_net) + theme(axis.text.x = element_text(angle = 90)) -->
+<!-- importantce_analysis_garson -->
+<!-- importantce_analysis_olden  <- olden(fit_net) + theme(axis.text.x = element_text(angle = 90)) -->
+<!-- importantce_analysis_olden -->
+<!-- sensitivity_lekprofile <- lekprofile(fit_net) + theme(axis.text.x = element_text(angle = 90)) -->
+<!-- sensitivity_lekprofile -->
+<!-- sensitivity_lekprofile_Group <- lekprofile(fit_net, group_show = TRUE) -->
+<!-- sensitivity_lekprofile_Group -->
+<!-- sensitivity_lekprofile_vals <- lekprofile(fit_net, group_vals=6, group_show = TRUE) -->
+<!-- sensitivity_lekprofile_vals -->
+<!-- ``` -->
+
+## Data modeling with the cleaned and normalized data set
+
+```{r}
+# based on the importance analysis result, we rebuild the ANN with less input variables from 30 to 10
+# we found that this will preserve the accuracy as told by the confusionMatrix
+# while we reduced the ANN parameters from 161 to 61. 
+# model becomes more resilent and able to catch the most essential information 
+
+# set the seed with nice prime number, so make the training re-producible
+set.seed(887)
+# we use 5 neurons in the hidden layer
+# 
+fit_net_10<-nnet(c2~perimeter_worst + concave.points_worst + radius_worst + concave.points_mean + concavity_mean,
+                 data=trainset,size=5, decay=5e-4, maxit=2000)
+# fit_net_10<-nnet(c2~perimeter_worst+radius_worst+area_worst+texture_worst+texture_se+compactness_worst+smoothness_worst+concavity_mean+concave.points_worst+concave.points_se,data=trainset,size=5, decay=5e-4, maxit=2000)
+fit_net_10
+```
+
+## 5. C) Model evaluation - Neural Network
+
+```{r}
+# put the predicted values and original values into one single data frame
+library('NeuralNetTools')
+predictions_10 <- data.frame(cbind(round(predict(fit_net_10, testset),digits=0), testset$c2))
+cm_nn <- table(predictions_10$X1,predictions_10$X2)
+confusionMatrix(cm_nn)
+NID_10 <- NeuralNetTools::plotnet(fit_net_10)
+```
+
+```{r}
+
+# importantce_analysis_garson_10 <-garson(fit_net_10) + theme(axis.text.x = element_text(angle = 90))
+# importantce_analysis_garson_10
+# importantce_analysis_olden_10  <- olden(fit_net_10) + theme(axis.text.x = element_text(angle = 90))
+# importantce_analysis_olden_10
+sensitivity_lekprofile_10 <- lekprofile(fit_net_10) + theme(axis.text.x = element_text(angle = 90))
+sensitivity_lekprofile_10
+sensitivity_lekprofile_Group_10 <- lekprofile(fit_net_10, group_show = TRUE)
+sensitivity_lekprofile_Group_10
+sensitivity_lekprofile_vals_10 <- lekprofile(fit_net_10, group_vals=6, group_show = TRUE)
+sensitivity_lekprofile_vals_10
+```
+
+- Finally lets try a kernelSVM Model using those top 5 features and using the scaled dataset
+
+## 4. D) Data Modeling - kernelSVM
+
+```{r, message = FALSE}
+dt <- diag_data_scaled_train[,-c(1)]
+diag_kSVM_model <- svm(formula = diag_data_scaled_train$diagnosis ~.,
+                 data = diag_data_scaled_train[,-c(1)],
+                 type = 'C-classification',
+                 kernel = 'radial')
+```
+
+## 5. D) Data Evaluation - kernelSVM
+
+#### Test the kernel SVM model.
+
+```{r, message = FALSE}
+diag_kSVM_pre <- predict(diag_kSVM_model, diag_data_scaled_test[,-c(1)])
+cm_kSVM <- confusionMatrix(diag_kSVM_pre, diag_data_scaled_test$diagnosis)
+cm_kSVM
+```
+
+#### Model Analysis and Selection
+
+```{r, message = FALSE}
+
+```
+
+## 6. Deployment
+
+#### Summary Explanation
+
+  - Limitations of our analysis 
+  - Further steps we could take.
+  
+  - To Non-Technical Audiences:
+  - Summary of your analysis: [explain how our model works and how it performs.]
+  - Factors that contributed to malignant vs benign tumor identification:
+
+- Ethical Framework Questions: 
+  - Can a malicious actor infer information about individuals from your system? No. There is no PII present.
+  - Are you able to identify anomalous activity on your system that might indicate a security breach?
+  - Do you have a plan to monitor for poor performance on individuals or subgroups?
+  - Do you have a plan to log and store historical predictions if a consumer requests access in the future?
+  - Have you documented model retraining cycles and can you confirm that a subject’s data has been removed from models?
+
+## References
+
+Yihui Xie, J. J. Allaire, Garrett Grolemund, 2019, R Markdown: The Definitive Guide
+https://bookdown.org/yihui/rmarkdown/markdown-syntax.html
+
+Jonathan McPherson, 2016, R Notebooks
+https://blog.rstudio.com/2016/10/05/r-notebooks
+
+Adam Kardash, Patricia Kosseim, 2018, Responsible AI in Consumer Enterprise, integrate.ai
+
+Mercedes Ovejero Bruna, 2019, https://www.kaggle.com/mercheovejero/breast-cancer-analysis-real-machine-learning
+
+J Marcus W. Beck, 2018, https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6262849/
