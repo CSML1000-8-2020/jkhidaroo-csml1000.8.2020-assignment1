@@ -6,7 +6,7 @@ output:
   html_document:
   toc: TRUE
   toc_depth: 2
-runtime: shiny
+# runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
@@ -34,17 +34,24 @@ library("nnet")
 library("purrr")
 library('corrplot')
 library('data.table')
-library('ROCR')
 library('caTools')
+# library(klaR)
 ```
 
 ## 1. Business Understanding
 
-- Objective: The Objective of this project is to create a model from the Wisconsin Breast Cancer Data that would allow for a classification prediction of 'B' or 'M' (Benign or Malignant) when given results from tumor measurement studies.
+- Business Problem: When a patient has a Radiologic Study done to image a tumor there can be a lengthy wait time between the capture of the study and recording of the measurement by the technologist to the time when the tumor is identified as 'Benign' or 'Maligant' either through a Radiologist Observation Result or a Biopsy Result. A machine Learning Model that could predict the diagnosis as soon as the measurements are entered would give Clinicians an early warning tool that could speed up the time for the start of treatment of a patient.
 
-- Project Plan:
+- Project Plan: 
+  - Load and get an understanding of the dataset, its target variable and its features.
+  - Make any modifications to the dataset needed to enable learning algorithms to be run on the data.
+  - Identify the features of the dataset that are important in predicting the target variable (dianosis in this case).
+  - Build and evaluate 3 to 4 Models from the dataset by appling various machine learning algoritms as appropiate and testing them.
+  - Identify the best model to use for the project.
+  - Build a shiny app that deploys the selected model with a user interface for end users to imput measurement values from a study and obtain a pridiction result.
+  - Identify any ethical considerations that should be addressed at each stage of the process.
 
-- Business Success Criteria: A successful project outcome would be achieved if a model is created that can predict the 'B' or 'M' outcome with a high degree of accuracy.
+- Business Success Criteria: A successful project outcome would be achieved if a model is created that can predict the 'B' or 'M' outcome with a high degree of accuracy and sensitivity when given an unlabeled set of measurements from a tumor study.
 
 - Ethical Framework Questions: 
   - How could your system negatively impact individuals? The greatest negative impact would occur for a false positive diagnosis since this could delay treatment and in a life threatening scenario. A false negative would also be negatively impactful but to a lessor degree.
@@ -80,97 +87,128 @@ breastcancer_data <- read.csv(full_file_name)
 # check data
 str(diagnosis_data_full)
 summary(diagnosis_data_full)
+# head(diagnosis_data_full)
 ```
 
-#### Plot the Target against the _mean features to get a feel for their relationships
-
-```{r, echo=FALSE}
-plot(x = diagnosis_data_full$radius_mean, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$texture_mean, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$perimeter_mean, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$smoothness_mean, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$compactness_mean, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$concavity_mean, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$concave.points_mean, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$symmetry_mean, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$fractal_dimension_mean, y = diagnosis_data_full$diagnosis)
-```
-
-- From these plots the we see that the radius_mean, perimeter_mean, concavity_mean, and concave.points_mean show more pronounced relationships to the target. The texture_mean, smoothness_mean, compactness_mean, and symmetry_mean show a lessor tendency. The fractal_dimension_mean does not appear to be related.
-
-#### Plot the Target against the _se features to get a feel for their relationships
-
-```{r, echo=FALSE}
-plot(x = diagnosis_data_full$radius_se, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$texture_se, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$perimeter_se, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$smoothness_se, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$compactness_se, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$concavity_se, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$concave.points_se, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$symmetry_se, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$fractal_dimension_se, y = diagnosis_data_full$diagnosis)
-```
-
-- The Standard Error of the mean features by themselves do not appear to have a relationship to the Target.
-
-#### Plot the Target against the _worst features to get a feel for their relationships
-
-```{r, echo=FALSE}
-plot(x = diagnosis_data_full$radius_worst, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$texture_worst, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$perimeter_worst, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$smoothness_worst, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$compactness_worst, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$concavity_worst, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$concave.points_worst, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$symmetry_worst, y = diagnosis_data_full$diagnosis)
-plot(x = diagnosis_data_full$fractal_dimension_worst, y = diagnosis_data_full$diagnosis)
-```
-
-- These distributions appear similiar to the _mean.
+- From an intial examination of the dataset we have a target variable: diagnosis, with values of 'B' for benign and 'M' for malignant. There are no missing entries in the dataset, 
+- The last column, 'X' has no information and the 'ID' column is not useful for analysis.
 
 ## 3. Data Preparation
 
-#### Scale Data Set
+#### a) Data Modification
+
+#### Column Removals
 
 ```{r, message = FALSE}
 # Remove Lines for the ID and Null X final Columns
 diagnosis_data_full <- diagnosis_data_full[2:32]
-str(diagnosis_data_full)
+```
+
+#### Scale Data Set 
+
+```{r, message = FALSE}
 # Encoding the target feature as factor
 # diagnosis_data_full$diagnosis = factor(diagnosis_data_full$diagnosis,
 #                                        levels = c('B', 'M'),
 #                                        labels = c(0,1))
 
-# Scaling the dataset
-diagnosis_data_full[,2:31] <- scale(diagnosis_data_full[,2:31])
-str(diagnosis_data_full)
-```
-
-#### View Correlation Matrix
-
-```{r, message = FALSE}
-M <- cor(diagnosis_data_full[,2:31])
-corrplot(M, method="circle", type="full")
+# Scaling the dataset for models that require it
+diagnosis_data_scaled <- diagnosis_data_full
+diagnosis_data_scaled[,2:31] <- scale(diagnosis_data_scaled[,2:31])
+str(diagnosis_data_scaled)
+names(diagnosis_data_full)
 ```
 
 #### Split Data into Train and Test Sets
+
+- Here we are splitting the datatsets in test and train datasets which alows for running the models.
 
 ```{r, message = FALSE}
 # Split the data into a train set and a test set
 diagnosis_data_train <- diagnosis_data_full[1:426,]
 diagnosis_data_test <- diagnosis_data_full[427:569,]
+# Split the scaled version as well
+diag_data_scaled_train <- diagnosis_data_scaled[1:426,]
+diag_data_scaled_test <- diagnosis_data_scaled[427:569,]
 ```
 
-#### Check diagnosis target variable
+#### The Dependent Variable
+
+- The dependant variable in our analysis ‘Diagnosis’ of cancer was of interest during data exploration. It has slight imbalance data and binary classification of benign and malignant. We can check it by looking at the breakdown on the dependent variable.
 
 ```{r, message = FALSE}
 prop.table(table(diagnosis_data_train$diagnosis))*100
 prop.table(table(diagnosis_data_test$diagnosis))*100
 ```
 
-- This split is fine as it gives greater importance to 'M' outcomes for training
+- This simple split is fine as it gives greater importance to 'M' outcomes for training which is desirable for the high sensitivity needed.
+- The target variable distribution also confirms that class imbalance is not an issue.
+
+#### b) Feature Engineering
+
+We needed to do feature engineering as there were lot of correlated features, for this particular use case, we decided to ensure that any and all possible relationships between input and output variables can be explored (non-linear or linear), and since random forest in general gives feature importance we used that feature from random forest liabrary, we decided to keep 4 importantfeatures out of 32 to give us better prediction. 
+
+#### View Correlation Matrix to explore highly correlated features
+
+```{r, message = FALSE}
+M <- cor(diagnosis_data_train[,2:31])
+# 24) perimeter_worst, 19) concave.points_worst, 22) radius_worst, 9) concave.points_mean, 8) concavity_mean
+# M <- cor(diagnosis_data_full[24, 19, 22, 9, 8])
+corrplot(M, method="circle", type="full")
+```
+
+#### Check Feature variables distribution vs Target
+
+```{r, message = FALSE}
+
+featurePlot(x = diagnosis_data_train[, 2:31], 
+            y = diagnosis_data_train$diagnosis, 
+            plot = "density", 
+            strip=strip.custom(par.strip.text=list(cex=.7)),
+            scales = list(x = list(relation="free"), 
+                          y = list(relation="free")), layout = c(6, 5), adjust = 1.5, pch = "|", auto.key=list(columns=2))
+```
+
+- Looking at this output we can see that the following features show higher density dirvergence w.r.t. the 2 target classes:  
+  - "compactness_worst"
+  - "concavity_worst"
+  - "concave.points_worst"
+  - "radius_worst"
+  - "texture_worst"
+  - "perimeter_worst"
+  - "area_worst"
+  - "concavity_mean"
+  - "concave.points_mean"
+  - "radius_mean"
+  - "texture_mean"
+  - "perimeter_mean"
+  - "area_mean"
+  - "compactness_mean"     
+
+#### Try a recursive feature elimination check - Feature Selection Method 1
+
+We tried multiple methods to decide which variables to use for feature importance. First one is recursive feature elimination technique as below.
+
+```{r, message = FALSE}
+set.seed(100)
+options(warn=-1)
+
+subsets <- c(1:5, 15, 20, 25, 31)
+
+ctrl <- rfeControl(functions = rfFuncs,
+                   method = "repeatedcv",
+                   repeats = 5,
+                   verbose = FALSE)
+
+lmProfile <- rfe(x=diagnosis_data_train[, 2:31], y=diagnosis_data_train$diagnosis,
+                 sizes = subsets,
+                 rfeControl = ctrl)
+
+lmProfile
+```
+
+- Key Output: The top 5 variables (out of 25): perimeter_worst, area_worst, radius_worst, concave.points_worst, texture_worst
+- These 5 were also identified in the Feature variables distribution check. It is possible that other suitable variables were left out due to strong correlations.
 
 ## 4. Data Modeling
 
@@ -179,91 +217,42 @@ prop.table(table(diagnosis_data_test$diagnosis))*100
   - Should you be optimizing for a different outcome than accuracy to make your outcomes fairer? Since there is no demographic data, fairness would be hard to determine.
   - Is it possible that a malicious actor has compromised training data and created misleading results? No. The data is from a reputable source.
 
-- Start with a simple Naive Bayes model to get a baseline result
+## 4. A) Data Modeling - Random Forest
 
-## 4. A) Data Modeling - Naive Bayes
-
-```{r, message = FALSE}
-diag_nb_model <- naiveBayes(diagnosis_data_train[,-c(1,2)], diagnosis_data_train$diagnosis)
-```
-
-##5. A) Data Evaluation - Naive Bayes
-
-#### Test the Naive Bayes model.
+#### Build a Random Forest Model based on all values to start.
+#### This gives us a model that is resistant to overfitting.
 
 ```{r, message = FALSE}
-diag_nb_pre <- predict(diag_nb_model, diagnosis_data_test[,-c(1,2)])
-diag_cm_nb <- confusionMatrix(diag_nb_pre, diagnosis_data_test$diagnosis)
-diag_cm_nb
-```
-
-- Now Try a lets try some Random Forests
-
-## 4. B) Data Modeling - Random Forest
-
-#### Build a Model based on Mean values
-
-```{r, message = FALSE}
-diag_mean_model <- randomForest(factor(diagnosis) ~ radius_mean + texture_mean + perimeter_mean + 
+diag_rf_model <- randomForest(factor(diagnosis) ~ radius_mean + texture_mean + perimeter_mean + 
                             smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
-                            symmetry_mean + fractal_dimension_mean,
-                         data = diagnosis_data_train)
-diag_mean_model
-```
-
-#### Build a Model based on SE values (Standard Error of Mean)
-
-```{r, message = FALSE}
-diag_se_model <- randomForest(factor(diagnosis) ~ radius_se + texture_se + perimeter_se + 
-                            smoothness_se + compactness_se + concavity_se + concave.points_se +
-                            symmetry_se + fractal_dimension_se,
-                         data = diagnosis_data_train)
-diag_se_model
-```
-
-#### Build a Model based on Worst values (Largest Mean Value)
-
-```{r, message = FALSE}
-diag_worst_model <- randomForest(factor(diagnosis) ~ radius_worst + texture_worst + perimeter_worst + 
+                            symmetry_mean + fractal_dimension_mean + 
+                            radius_se + texture_se + perimeter_se + 
+                            smoothness_se + compactness_se + concavity_se + concave.points_se + 
+                            symmetry_se + fractal_dimension_se + 
+                            radius_worst + texture_worst + perimeter_worst + 
                             smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
                             symmetry_worst + fractal_dimension_worst,
                          data = diagnosis_data_train)
-diag_worst_model
+diag_rf_model
 ```
 
-## 5. B) Data Evaluation - Random Forest
+## 5. A) Data Evaluation - Random Forest
 
-#### Test the Mean Model
+#### Test the Random Forest Model
 
 ```{r, message = FALSE}
-pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1,1)])
-cm_mean <- confusionMatrix(pre_mean_rf, diagnosis_data_test$diagnosis)
-cm_mean
+pre_rf <- predict(diag_rf_model, diagnosis_data_test[,-c(1,1)])
+cm_rf <- confusionMatrix(pre_rf, diagnosis_data_test$diagnosis)
+cm_rf
 ```
 
-#### Test the SE Model
+#### Feature Engineering Continued - Feature Selection Method 2
 
-```{r, message = FALSE}
-pre_se_rf <- predict(diag_se_model, diagnosis_data_test[,-c(1,1)])
-cm_se <- confusionMatrix(pre_se_rf, diagnosis_data_test$diagnosis)
-cm_se
-```
-
-#### Test the Worst Model
-
-```{r, message = FALSE}
-pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1,1)])
-cm_worst <- confusionMatrix(pre_worst_rf, diagnosis_data_test$diagnosis)
-cm_worst
-```
-
-- From these 3 outcomes, the SE model is clearly inferior, so lets look for more details of the other 2 models
-
-#### Examine the Mean Model for feature importance
+#### Examine the Random Forest Model for feature importance
 
 ```{r, message = FALSE}
 # Get importance
-importance    <- importance(diag_mean_model)
+importance    <- importance(diag_rf_model)
 varImportance <- data.frame(Variables = row.names(importance), 
                             Importance = round(importance[ ,'MeanDecreaseGini'],2))
 
@@ -278,110 +267,22 @@ ggplot(rankImportance, aes(x = reorder(Variables, Importance),  y = Importance, 
     labs(x = 'Variables') + coord_flip() +  theme_few()
 ```
 
-- Shows the following as most important: concave.points_mean, perimeter_mean, concavity_mean, radius_mean
+- Shows the following 5 features as most important: perimeter_worst, concave.points_worst,radius_worst, concave.points_mean, concavity_mean
+  - Again, these 5 were also identified in the Feature variables distribution check.
+  - Since it appears that this method considered a wider range of variables we will proceed with this outcome.
+  
+#### Features Selected: 24) perimeter_worst, 19) concave.points_worst, 22) radius_worst, 9) concave.points_mean, 8) concavity_mean
 
-#### Examine the Worst Model for feature importance
+- Now lets try a Logistic Regression Model using those top 5 features
 
-```{r, message = FALSE}
-# Get importance
-importance    <- importance(diag_worst_model)
-varImportance <- data.frame(Variables = row.names(importance), 
-                            Importance = round(importance[ ,'MeanDecreaseGini'],2))
-
-# Create a rank variable based on importance
-rankImportance <- varImportance %>%
-  mutate(Rank = paste0('#',dense_rank(desc(Importance))))
-
-# Use ggplot2 to visualize the relative importance of variables
-ggplot(rankImportance, aes(x = reorder(Variables, Importance),  y = Importance, fill = Importance)) +
-    geom_bar(stat='identity') + 
-    geom_text(aes(x = Variables, y = 0.5, label = Rank), hjust=0, vjust=0.55, size = 4, colour = 'red') +
-    labs(x = 'Variables') + coord_flip() +  theme_few()
-```
-
-- Shows the following as most important: radius_worst, perimeter_worst, concave.points_worst, concavity_worst
-
-#### Re-Build Model based on only top 4 important Mean values
+## 4. B) Data Modeling - Logistic Regression
 
 ```{r, message = FALSE}
-diag_mean_model <- randomForest(factor(diagnosis) ~ concave.points_mean + perimeter_mean + concavity_mean 
-                                + radius_mean,
-                         data = diagnosis_data_train)
-diag_mean_model
-```
-
-#### Re-Build Model based on only top 4 important Worst values (Largest Mean Value)
-
-```{r, message = FALSE}
-diag_worst_model <- randomForest(factor(diagnosis) ~ radius_worst + perimeter_worst + concave.points_worst
-                             + concavity_worst,
-                         data = diagnosis_data_train)
-diag_worst_model
-```
-
-#### Test the New Mean Model
-
-```{r, message = FALSE}
-pre_mean_rf <- predict(diag_mean_model, diagnosis_data_test[,-c(1,1)])
-cm_mean <- confusionMatrix(pre_mean_rf, diagnosis_data_test$diagnosis)
-cm_mean
-```
-
-#### Test the New Worst Model
-
-```{r, message = FALSE}
-pre_worst_rf <- predict(diag_worst_model, diagnosis_data_test[,-c(1,1)])
-cm_worst <- confusionMatrix(pre_worst_rf, diagnosis_data_test$diagnosis)
-cm_worst
-```
-
-- So eliminating lessor features slightly reduced the accuracy for both models
-- Lets try a model that includes both the mean and worst features
-
-
-#### Build a Model based Mean + Worst values
-
-```{r, message = FALSE}
-diag_mean_worst_model <- randomForest(factor(diagnosis) ~ radius_mean + texture_mean + perimeter_mean + 
-                            smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
-                            symmetry_mean + fractal_dimension_mean + radius_worst + texture_worst + perimeter_worst + 
-                            smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
-                            symmetry_worst + fractal_dimension_worst,
-                         data = diagnosis_data_train)
-diag_mean_worst_model
-```
-
-#### Test the Mean + Worst Model
-
-```{r, message = FALSE}
-pre_mean_worst_rf <- predict(diag_mean_worst_model, diagnosis_data_test[,-c(1,1)])
-cm_mean_worst <- confusionMatrix(pre_mean_worst_rf, diagnosis_data_test$diagnosis)
-cm_mean_worst
-```
-
-- This appears to be a slight improvement
-
-- Now lets try a Logistic Regression Model
-
-## 4. C) Data Modeling - Logistic Regression
-
-```{r, message = FALSE}
-# fit_lg <- trainControl(## 10-fold CV
-#   method = "cv",
-#   number = 10,
-#   savePredictions = TRUE)
-# 
-# diag_lg<-train(diagnosis ~ radius_mean + texture_mean + perimeter_mean + 
-#                             smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
-#                             symmetry_mean + fractal_dimension_mean + radius_worst + texture_worst + perimeter_worst + 
-#                             smoothness_worst + compactness_worst + concavity_worst + concave.points_worst +
-#                             symmetry_worst + fractal_dimension_worst,
-#                data=diagnosis_data_train,method="glm",family=binomial(), trControl=fit_lg)
 
 library('ranger')
 dim(breastcancer_data)
-head(breastcancer_data,6)
-summary(breastcancer_data)
+# head(breastcancer_data,6)
+# summary(breastcancer_data)
 names(breastcancer_data)
 
 # summarize the class distribution
@@ -389,14 +290,14 @@ percentage <- prop.table(table(breastcancer_data$diagnosis)) * 100
 cbind(freq=table(breastcancer_data$diagnosis), percentage=percentage)
 #remove id and x
 target <- ifelse(breastcancer_data$diagnosis=="B", 1, 0)
-target
+#head(target)
 model_1 = select (breastcancer_data,-c(X,id,diagnosis))
 nobs <- nrow(model_1)
 nobs
-model_1
+# head(model_1)
 model_2=scale(model_1)
 model_3<-data.frame(cbind(model_2,target))
-summary(model_3)
+# summary(model_3)
 
 #model start
 library(caTools)
@@ -407,26 +308,27 @@ test_data = subset(model_3, split == FALSE)
 
 dim(train_data)
 
-Logistic_Model <- glm(target ~ perimeter_mean + 
-                        + smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
-                        symmetry_mean ,data=train_data, family = binomial)
-summary(Logistic_Model)
+# Logistic_Model <- glm(target ~ perimeter_mean + 
+#                         + smoothness_mean + compactness_mean + concavity_mean + concave.points_mean +
+#                         symmetry_mean ,data=train_data, family = binomial)
+Logistic_Model <- glm(target ~ perimeter_worst + concave.points_worst + radius_worst + concave.points_mean + concavity_mean, 
+                      data=train_data, family = binomial)
 
+summary(Logistic_Model)
 ```
 
-## 5. C) Data Evaluation - Logistic Regression
+## 5. B) Data Evaluation - Logistic Regression
 
 #### Test Logistic Regression Model
 
 ```{r, message = FALSE}
-# diag_lg_pre<-predict(diag_lg,diagnosis_data_test[,-c(1,1)])
-# cm_lg<-confusionMatrix(diag_lg_pre,diagnosis_data_test$diagnosis)
-# cm_lg
 predictTrain = predict(Logistic_Model, type="response")
 summary(predictTrain)
 tapply(predictTrain, train_data$target, mean)
 table(train_data$target, predictTrain > 0.5)
-install.packages("ROCR")
+# lg_cm <- confusionMatrix(table(train_data$target, predictTrain > 0.5))
+# lg_cm
+# install.packages("ROCR")
 library(ROCR)
 ROCRpred = prediction(predictTrain, train_data$target)
 ROCRperf = performance(ROCRpred, "tpr", "fpr")
@@ -435,12 +337,21 @@ plot(ROCRperf, colorize=TRUE)
 plot(ROCRperf, colorize=TRUE, print.cutoffs.at=seq(0,1,by=0.1), text.adj=c(-0.2,1.7))
 predictTest = predict(Logistic_Model, type = "response", newdata = test_data)
 summary(predictTest)
+
+library('MLmetrics')
+pred <- ifelse(Logistic_Model$fitted.values<0.5, 0, 1)
+cm_lg <- ConfusionMatrix(y_pred = pred, y_true = train_data$target)
+cm_lg2 <- confusionMatrix(cm_lg)
+cm_lg2
 ```
 
-## 4. D) Data Modeling - Neural Network
+- Next lets try a Logistic Neural Network using those top 5 features
+
+## 4. C) Data Modeling - Neural Network
 
 ### Universal approximation theorem states that simple ariticial neural networks with only one hidden layer has the potentail to represent almost any contineous functions with nicely assigned parameters and a proper non-polymonial activation function such as signoid or rectified linear unit. 
-### R has a package nnet, which can be used for Classification and Regression. We decided to model the data with a simple ANN.
+
+### R has a package nnet, which can be used for Classification and Regression. We decided to try a simple ANN model.
 
 ```{r}
 # load the package "nnet" which provide the ANN modeling functionality
@@ -448,16 +359,23 @@ library("nnet")
 ```
 ## preprocess the data for modeling
 ```{r}
+# load the data into a data frame
+library('readr')
+diagnosis_data_full = read.csv("./input/diagnosis_data.csv")
+
 # set up the function for data normalization
 normalize <- function(x) {return ((x - min(x)) / (max(x) - min(x)))}
 
 # normalize the numeric data from column 3 to column 32
-maxmindf <- as.data.frame(lapply(diagnosis_data_full[3:31], normalize))
+maxmindf <- as.data.frame(lapply(diagnosis_data_full[3:32], normalize))
 
 # normalize the factor column, transform M -> -1 and B -> 1
 
 # set up the mapping function to use
 myMapper <- function(x) { if(x=="M") {temp <- -1} else {temp <- 1}; return (temp) }
+
+# load the libary "purrr" for the function map
+library("purrr")
 
 # pull out column #2 which is the factor column for prediction and transform/normalize it.
 factors <- diagnosis_data_full[2:2]
@@ -472,147 +390,180 @@ trainset <- cleanData[1:426,]
 testset <- cleanData[427:569,]
 ```
 
-#### Data modeling with the cleaned and normalized data set
+## Data modeling with the cleaned and normalized data set
 
 ```{r}
+# based on the importance analysis result, we rebuild the ANN with less input variables from 30 to 10
+# we found that this will preserve the accuracy as told by the confusionMatrix
+# while we reduced the ANN parameters from 161 to 61. 
+# model becomes more resilent and able to catch the most essential information 
+
 # set the seed with nice prime number, so make the training re-producible
 set.seed(887)
 # we use 5 neurons in the hidden layer
-fit_net<-nnet(c2~.,data=trainset,size=5, decay=5e-4, maxit=2000)
-fit_net
+# 
+fit_net_10<-nnet(c2~perimeter_worst + concave.points_worst + radius_worst + concave.points_mean + concavity_mean,
+                 data=trainset,size=5, decay=5e-4, maxit=2000)
+fit_net_10
 ```
 
-## 5. D) Model evaluation - Neural Network
+## 5. C) Model evaluation - Neural Network
 
 ```{r}
 # put the predicted values and original values into one single data frame
-predictions <- data.frame(cbind(round(predict(fit_net, testset),digits=0), testset$c2))
-# add a column "d", to represent the difference with the predicted and the actual
-predictions$d <- (predictions$X1 - predictions$X2)
-head(predictions,n=5)
-# compute the confusionMatrix
-table(predictions$X1,predictions$X2)
+library('NeuralNetTools')
+predictions_10 <- data.frame(cbind(round(predict(fit_net_10, testset),digits=0), testset$c2))
+cm_nn <- table(predictions_10$X1,predictions_10$X2)
+confusionMatrix(cm_nn)
+NID_10 <- NeuralNetTools::plotnet(fit_net_10)
 ```
 
-## 4. E) Data Modeling - kernelSVM
+```{r}
+sensitivity_lekprofile_10 <- lekprofile(fit_net_10) + theme(axis.text.x = element_text(angle = 90))
+sensitivity_lekprofile_10
+sensitivity_lekprofile_Group_10 <- lekprofile(fit_net_10, group_show = TRUE)
+sensitivity_lekprofile_Group_10
+sensitivity_lekprofile_vals_10 <- lekprofile(fit_net_10, group_vals=6, group_show = TRUE)
+sensitivity_lekprofile_vals_10
+```
+
+- Finally lets try a kernelSVM Model using those top 5 features and using the scaled dataset
+
+## 4. D) Data Modeling - kernelSVM
 
 ```{r, message = FALSE}
-dt <- diagnosis_data_train[,-c(1)]
-diag_kSVM_model <- svm(formula = diagnosis_data_train$diagnosis ~.,
-                 data = diagnosis_data_train[,-c(1)],
+dt <- diag_data_scaled_train[,-c(1)]
+diag_kSVM_model <- svm(formula = diag_data_scaled_train$diagnosis ~.,
+                 data = diag_data_scaled_train[,-c(1)],
                  type = 'C-classification',
                  kernel = 'radial')
 ```
 
-## 5. E) Data Evaluation - kernelSVM
+## 5. D) Data Evaluation - kernelSVM
 
 #### Test the kernel SVM model.
 
 ```{r, message = FALSE}
-diag_kSVM_pre <- predict(diag_kSVM_model, diagnosis_data_test[,-c(1)])
-diag_kSVM <- confusionMatrix(diag_kSVM_pre, diagnosis_data_test$diagnosis)
-diag_kSVM
+diag_kSVM_pre <- predict(diag_kSVM_model, diag_data_scaled_test[,-c(1)])
+cm_kSVM <- confusionMatrix(diag_kSVM_pre, diag_data_scaled_test$diagnosis)
+cm_kSVM
+
+library(pROC)
+roc_obj <- roc(diag_data_scaled_test$diagnosis, diag_kSVM_pre)
+auc(roc_obj)
 ```
 
-## 6. Deployment
+## 6. Final Model Analysis and Selection
 
-- Explanation:
-  - Explain the limitations of your analysis and identify possible further steps you could take.
+#### Cost Analysis
+
+This is a situation where we want to predict cancer cells in a patient based on the MRI done in the Hospital. Previously this kind of prediction was done using the historical data of previous cancer patients over the years and compare them with current data points. By using feature selection to filter out irrelevant features and using model pipeline to go through numerous features we select the best machine learning models based on measures such as specifity and sensitivity. Two models we focus on primarily are and Decision Tree abd SVM as they give best predictive results. The predictions we are focused on when working with cancer use cases.
+Before latest machine learning techniques this was done with around 33 variables based on historical data for previous patients. Now the number of features has exponentially increased due to various kinds of data being used such as clinical data, genomic data of patients and tumor related data. The issue here again same as the fraud problem of imbalanced Dataset.  This is a common problem with these use cases which is an imbalance of predictive events with parameters (too few events, too many parameters), overtraining, and a lack of external validation or testing.  What is important in this case is the sample per ratio of training set. Size and variety if training set is important. Since we want to predict a minority class of values, we need a Representative sample of the training and test data.  It is possible that we do not fully utilize the representative sample and model uses bias or a selected set of training data and keeps training on it. What ends up happening is that Training too many times on too few examples with too little variety leads to the phenomenon of over-training or simply training on noise. When it is asked to predict new target then the model fails spectacularly.
+Just using accuracy as a measure would not yield good results as we have imbalanced dataset. Generally, this problem deals with the trade-off between recall (percent of truly positive instances that were classified as such) and precision (percent of positive classifications that are truly positive). Since we always want to detect instances of a minority class in our case cancer cells out of set of good cells in our body. It is usually more expensive to miss a positive cancer cells than to falsely label a cell which is not malcontent to be tumor cells. It is best to avoid Accuracy and use measures such as Precision and AUROC.
+
+```{r, message = FALSE}
+
+```
+
+#### Model Comparison
+
+- The following Machine Learning Algorithms were used in this analysis:
+                        Accuracy Sesitivity Specificity 
+  - Random Forest        0,9790    0.9722     1.0000
+  - Logistic Regression  0.9578    0.9434     0.9664
+  - Neural Net           0.9790    1.0000     0.9722
+  - kernel SVM           0.9790    0.9722     1.0000
   
-  - To Non-Technical Audiences
-  - Write a short summary of your analysis, explaining how your model works and how it performs.
-  - Briefly explain the factors that contributed to malignant vs benign tumor identification.
+Size of Training Data
+Size of data is the key in our problem set. If our data is small with a smaller number of features then our training set is small as well, it results in high bias/low variance classifiers such as Naive Bayes. These classifiers have an edge of overfitting over the set of low bias/high variance classifiers which would be K-NN. Hence over time these classifiers start to perform better as training set size increases meaning the error decreases in the cost function.  These high bias classifiers end up being quite meek for a good case of accurate predictive modeling. In the following paragraphs I would be doing comparison between different algorithms to show the strength and accuracy of each classification algorithm in term of performance efficiency and time complexity.
+
+Features of Random Forest: 
+Random Forest is a classification and regression algorithm. Here, we train several decision trees. The original learning dataset is randomly divided into several subsets of equal size. A decision tree is trained for each subset.
+
+Advantages:
+  - Robust to overfitting (thus solving one of the biggest disadvantages of decision trees)
+  - Parameterization remains quite simple and intuitive
+  - Performs very well when the number of features is big and for large quantity of learning data
+ 
+Disadvantages:
+  - Models generated with Random Forest may take a lot of memory
+  - Learning may be slow (depending on the parameterization)
+  - Not possible to iteratively improve the generated models
+
+Logistic Regression:
+Logistic Regression Model is a generalized form of Linear Regression Model. It is a very good Discrimination Tool. Following are the advantages and disadvantage of Logistic Regression:
+
+Advantages:
+  - Logistic Regression performs well when the dataset is linearly separable.
+  - Logistic regression is less prone to over-fitting but it can overfit in high dimensional datasets. You should consider Regularization (L1 and L2) techniques to avoid over-fitting in these scenarios.
+  - Logistic Regression not only gives a measure of how relevant a predictor (coefficient size) is, but also its direction of association (positive or negative).
+  - Logistic regression is easier to implement, interpret and very efficient to train.
+  
+Disadvantages:
+  - Main limitation of Logistic Regression is the assumption of linearity between the dependent variable and the independent variables. In the real world, the data is rarely linearly separable. Most of the time data would be a jumbled mess.
+  - If the number of observations are lesser than the number of features, Logistic Regression should not be used, otherwise it may lead to overfit.
+  - Logistic Regression can only be used to predict discrete functions. Therefore, the dependent variable of Logistic Regression is restricted to the discrete number set. This restriction itself is problematic, as it is prohibitive to the prediction of continuous data.
+
+Neural Network
+Advantages:
+  - Complicated functions and non-linear problems can be solved easily by Neural network.
+  - Can use ensembling with other techniques to get good solution.
+Disadvantage
+  - Much Slower for training and classification
+  - Hard to interpret,
+  - Data comes in streams
+  - Not usable with small datasets.
+ 
+Kernel SVM
+Features of SVMs: Support Vector machine is a classification algorithm used primarily with text classification problems. It uses  hyperplane to separate out different cluster of data. You can cut the universe in different classes using the hyperplane which can be molded in any direction. This can be done both linearly and non-linearly. The identified hyperplane can be thought as a decision boundary between the two clusters. This allows classification of vectors multi dimensionally. This can be used with text classification by encoding on text data. This results in every item in the dataset being represented as a vector with large value dimensions, everyone representing the frequency one of the words of the text.
+ 
+Advantages:
+  - High accuracy with small data,
+  - Not susceptible to overfitting
+  - Works with linear and non-linear data.
+ 
+Disadvantage:
+  - Memory-intensive operationally
+  - Hard to understand and implement certain.
+
+```{r, message = FALSE}
+
+```
+
+#### Selected Model: We selected the Kernel SVM Model due to high accuracy and sensitivity as well as its charateristic of being accurate with small datasets of which this one.
+
+## 7. Deployment
+
+#### Shiny App Url: https://paul-doucet.shinyapps.io/Group8Assignment1/
+
+#### Summary Explanation
+
+- Limitations of our analysis: 
+  - Our model is trained on a relatively small dataset provided by a single institution. Its ability to predict dianoses could be biased depending on the demographic population that make use of this institution's facilities. This demographic data was not provided with the dataset.
+  - Our analysis considered 4 Machine learning algorithms or the many that are available.
+  
+- Further steps we could take: 
+  - A more comprehensive study could be completed is similiar data could be obtain from other diverse sources around the world.
+  - Given time and resources, additional algorithms and optimization techniques could be explored to improve the performance.
+  
+- Explanation of Model:
+  - Our model was arrived at by analysing the 30 columns of data included with the dataset. The different features included as columns were derived from measurements taken on tumors of actual patients who underwent a radiologic study.  The features included size measurements such as radius, area, perimeter, etc. as well as shape and density measurements. The model analysed the features to determine which ones were strongly corelated to the outcome of the dianosis.
+  - We identified 5 of the 31 columns as the most important determining factors.
+  - The Factors that contributed to malignant vs benign tumor identification were the following columns: 
+    - concavity_mean: mean of severity of concave portions of the contour
+    - concave points_mean: mean for number of concave portions of the contour
+    - radius_worst: "worst" or largest mean value for mean of distances from center to points on the perimeter
+    - concavity_points_worst: "worst" or largest mean value for number of concave portions of the contour
+    - perimeter_worst: (Discription not given)
+  - Using these 5 columns as our feature metrics we investigated 4 different machine learning algorihtms to determine which one provides the best solution for predicting a diagnostic outcome outcome, i.e. Whether a tumor is Benign or Malignant.
+  - The model chosen was able to predict with an accucuracy of 97.9 %.
 
 - Ethical Framework Questions: 
   - Can a malicious actor infer information about individuals from your system? No. There is no PII present.
-  - Are you able to identify anomalous activity on your system that might indicate a security breach?
-  - Do you have a plan to monitor for poor performance on individuals or subgroups?
-  - Do you have a plan to log and store historical predictions if a consumer requests access in the future?
-  - Have you documented model retraining cycles and can you confirm that a subject’s data has been removed from models?
-
-#### Define UI
-
-```{r, message = FALSE}
-ui <- fluidPage(theme = shinytheme("lumen"),
-#ui <- fillPage(theme = shinytheme("lumen"),
-  titlePanel("Diagnosis Predictor"),
-  sidebarLayout(
-    sidebarPanel(
-      
-      # Button to click for generating prediction
-      actionButton("predict", "Predict"),
-      
-      # Inputs
-      sliderInput("radius_mean", label = "radius_mean:", min = 1, max = 30, value = 1, step = 0.001),
-      sliderInput("texture_mean", label = "texture_mean:", min = 5, max = 50, value = 5, step = 0.01),
-      sliderInput("perimeter_mean", label = "perimeter_mean:", min = 25, max = 225, value = 25, step = 0.01),
-      sliderInput("area_mean", label = "area_mean:", min = 100, max = 2600, value = 100, step = 0.1),
-      sliderInput("smoothness_mean", label = "smoothness_mean:", min = 0.01, max = 0.25, value = 0.01, step = 0.00001),
-      sliderInput("compactness_mean", label = "compactness_mean:", min = 0, max = 1, value = 0, step = 0.00001),
-      sliderInput("concavity_mean", label = "concavity_mean:", min = 0, max = 1, value = 0, step = 0.00001),
-      sliderInput("concave.points_mean", label = "concave.points_mean:", min = 0, max = 25, value = 0, step = 0.00001),
-      sliderInput("symmetry_mean", label = "symmetry_mean:", min = 0, max = 5, value = 0, step = 0.00001),
-      sliderInput("fractal_dimension_mean", label = "fractal_dimension_mean:", min = 0.01, max = 0.1, value = 0.01, step = 0.00001),
-      width = 6
-    ),
-
-    # Output: Text Giving a Prediction
-    mainPanel(
-      h3(textOutput(outputId = "Pred")),
-      textOutput(outputId = "ShowStr"),
-      tableOutput("Table"), width = 6
-    ),
-  )
-)
-```
-
-#### Define server function
-
-```{r, message = FALSE}
-server <- function(input, output, session) {
-
-  diagnosis <- "NA"
-  
-  observeEvent(input$predict, {
-    #output$desc <- renderText({
-      # desc_text <- input$radius_mean
-      # paste("radius_mean: ", desc_text)
-    
-      data <- reactive({
-      req(diagnosis)
-      data.frame(diagnosis=NA,
-               radius_mean=input$radius_mean,
-               texture_mean=input$texture_mean,
-               perimeter_mean=input$perimeter_mean,
-               area_mean=input$area_mean,
-               smoothness_mean=input$smoothness_mean,
-               compactness_mean=input$compactness_mean,
-               concavity_mean=input$concavity_mean,
-               concavity_mean=input$concavity_mean,
-               concave.points_mean=input$concave.points_mean,
-               symmetry_mean=input$symmetry_mean,
-               fractal_dimension_mean=input$fractal_dimension_mean)
-      })
-      
-      str_text <- reactive({
-        str(data())
-      })
-      output$ShowStr <- renderPrint(str_text())
-
-      pred <- reactive({
-        predict(diag_mean_model,data())
-      })
-
-      output$Pred <- renderPrint(pred())
-  })
-}
-```
-
-#### Run Shiny App
-
-```{r, message = FALSE}
-shinyApp(ui = ui, server = server)
-```
+  - Are you able to identify anomalous activity on your system that might indicate a security breach? This would need to be considered for each specific deployment.
+  - Do you have a plan to monitor for poor performance on individuals or subgroups? N/A since No demographic data is present.
+  - Do you have a plan to log and store historical predictions if a consumer requests access in the future? N/A since No demographic data is present.
+  - Have you documented model retraining cycles and can you confirm that a subject’s data has been removed from models? N/A since No demographic data is present.
 
 ## References
 
@@ -625,3 +576,5 @@ https://blog.rstudio.com/2016/10/05/r-notebooks
 Adam Kardash, Patricia Kosseim, 2018, Responsible AI in Consumer Enterprise, integrate.ai
 
 Mercedes Ovejero Bruna, 2019, https://www.kaggle.com/mercheovejero/breast-cancer-analysis-real-machine-learning
+
+J Marcus W. Beck, 2018, https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6262849/
