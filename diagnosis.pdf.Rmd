@@ -43,11 +43,18 @@ library('caTools')
 
 ## 1. Business Understanding
 
-- Objective: The Objective of this project is to create a model from the Wisconsin Breast Cancer Data that would allow for a classification prediction of 'B' or 'M' (Benign or Malignant) when given results from tumor measurement studies.
+- Business Problem: When a patient has a Radiologic Study done to image a tumor there can be a lengthy wait time between the capture of the study and recording of the measurement by the technologist to the time when the tumor is identified as 'Benign' or 'Maligant' either through a Radiologist Observation Result or a Biopsy Result. A machine Learning Model that could predict the diagnosis as soon as the measurements are entered would give Clinicians an early warning tool that could speed up the time for the start of treatment of a patient.
 
-- Project Plan:
+- Project Plan: 
+  - Load and get an understanding of the dataset, its target variable and its features.
+  - Make any modifications to the dataset needed to enable learning algorithms to be run on the data.
+  - Identify the features of the dataset that are important in predicting the target variable (dianosis in this case).
+  - Build and evaluate 3 to 4 Models from the dataset by appling various machine learning algoritms as appropiate and testing them.
+  - Identify the best model to use for the project.
+  - Build a shiny app that deploys the selected model with a user interface for end users to imput measurement values from a study and obtain a pridiction result.
+  - Identify any ethical considerations that should be addressed at each stage of the process.
 
-- Business Success Criteria: A successful project outcome would be achieved if a model is created that can predict the 'B' or 'M' outcome with a high degree of accuracy.
+- Business Success Criteria: A successful project outcome would be achieved if a model is created that can predict the 'B' or 'M' outcome with a high degree of accuracy and sensitivity when given an unlabeled set of measurements from a tumor study.
 
 - Ethical Framework Questions: 
   - How could your system negatively impact individuals? The greatest negative impact would occur for a false positive diagnosis since this could delay treatment and in a life threatening scenario. A false negative would also be negatively impactful but to a lessor degree.
@@ -85,6 +92,9 @@ str(diagnosis_data_full)
 summary(diagnosis_data_full)
 # head(diagnosis_data_full)
 ```
+
+- From an intial examination of the dataset we have a target variable: diagnosis, with values of 'B' for benign and 'M' for malignant. There are no missing entries in the dataset, 
+- The last column, 'X' has no information and the 'ID' column is not useful for analysis.
 
 ## 3. Data Preparation
 
@@ -200,24 +210,6 @@ lmProfile
   - Does your use case require a more interpretable algorithm? Accuracy is more impotant than interpretability for this study.
   - Should you be optimizing for a different outcome than accuracy to make your outcomes fairer? Since there is no demographic data, fairness would be hard to determine.
   - Is it possible that a malicious actor has compromised training data and created misleading results? No. The data is from a reputable source.
-
-<!-- - Start with a simple Naive Bayes model to get a baseline result -->
-
-<!-- ## 4. A) Data Modeling - Naive Bayes -->
-
-<!-- ```{r, message = FALSE} -->
-<!-- diag_nb_model <- naiveBayes(diagnosis_data_train[,-c(1,2)], diagnosis_data_train$diagnosis) -->
-<!-- ``` -->
-
-<!-- ##5. A) Data Evaluation - Naive Bayes -->
-
-<!-- #### Test the Naive Bayes model. -->
-
-<!-- ```{r, message = FALSE} -->
-<!-- diag_nb_pre <- predict(diag_nb_model, diagnosis_data_test[,-c(1,1)]) -->
-<!-- diag_cm_nb <- confusionMatrix(diag_nb_pre, diagnosis_data_test$diagnosis) -->
-<!-- diag_cm_nb -->
-<!-- ``` -->
 
 ## 4. A) Data Modeling - Random Forest
 
@@ -465,6 +457,12 @@ Just using accuracy as a measure would not yield good results as we have imbalan
 
 #### Model Comparison
 
+- The following Machine Learning Algorithms were used in this analysis:
+  - Random Forest
+  - Logistic Regression
+  - Neural Net
+  - kernel SVM
+
 ```{r, message = FALSE}
 
 ```
@@ -515,3 +513,4 @@ Adam Kardash, Patricia Kosseim, 2018, Responsible AI in Consumer Enterprise, int
 Mercedes Ovejero Bruna, 2019, https://www.kaggle.com/mercheovejero/breast-cancer-analysis-real-machine-learning
 
 J Marcus W. Beck, 2018, https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6262849/
+
