@@ -447,10 +447,6 @@ diag_kSVM_model <- svm(formula = diag_data_scaled_train$diagnosis ~.,
 diag_kSVM_pre <- predict(diag_kSVM_model, diag_data_scaled_test[,-c(1)])
 cm_kSVM <- confusionMatrix(diag_kSVM_pre, diag_data_scaled_test$diagnosis)
 cm_kSVM
-
-library(pROC)
-roc_obj <- roc(diag_data_scaled_test$diagnosis, diag_kSVM_pre)
-auc(roc_obj)
 ```
 
 ## 6. Final Model Analysis and Selection
