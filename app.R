@@ -118,9 +118,6 @@ server <- function(input, output, session) {
             predict(diag_kSVM_model,data())
         })
         
-        # pred <- reactive({
-        #   predict(diag_kSVM_model,data()))
-        # }
         DIAG <- toString(pred())
         if (DIAG == "B"){
             DIAG <- "Benign"
