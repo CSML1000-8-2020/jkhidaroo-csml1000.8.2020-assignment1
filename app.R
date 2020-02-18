@@ -57,7 +57,7 @@ ui <- fluidPage(
     sidebarLayout(
         sidebarPanel(
             # Inputs
-            #p("Select from the following features the parameter value"),
+            p("Select from the following features the parameter value, then click on the Predict button at the bottom of the table"),
             sliderInput("perimeter_worst", label = "Perimeter Worst", min = 0, max = 300, value = 0, step = 0.1),
             sliderInput("concave.points_worst", label = "Concave Points Worst", min = 0, max = 0.4, value = 0, step = 0.0001),
             sliderInput("radius_worst", label = "Radius Worst", min = 0, max = 50, value = 0, step = 0.01),
@@ -129,7 +129,7 @@ server <- function(input, output, session) {
             DIAG <- "Malignant"
             font <- 'red'
         }
-        output$Pred <- renderPrint(DIAG)
+        output$Pred <- renderText(DIAG)
         
         output$values <- renderTable({
             sliderValues()
