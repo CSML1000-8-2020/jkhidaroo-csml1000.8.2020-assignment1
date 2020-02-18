@@ -121,6 +121,8 @@ names(diagnosis_data_full)
 
 #### Split Data into Train and Test Sets
 
+- Here we are splitting the datatsets in test and train datasets which alows for running the models.
+
 ```{r, message = FALSE}
 # Split the data into a train set and a test set
 diagnosis_data_train <- diagnosis_data_full[1:426,]
@@ -130,7 +132,9 @@ diag_data_scaled_train <- diagnosis_data_scaled[1:426,]
 diag_data_scaled_test <- diagnosis_data_scaled[427:569,]
 ```
 
-#### Check diagnosis target variable
+#### The Dependent Variable
+
+- The dependant variable in our analysis ‘Diagnosis’ of cancer was of interest during data exploration. It has slight imbalance data and binary classification of benign and malignant. We can check it by looking at the breakdown on the dependent variable.
 
 ```{r, message = FALSE}
 prop.table(table(diagnosis_data_train$diagnosis))*100
@@ -141,6 +145,8 @@ prop.table(table(diagnosis_data_test$diagnosis))*100
 - The target variable distribution also confirms that class imbalance is not an issue.
 
 #### b) Feature Engineering
+
+We needed to do feature engineering as there were lot of correlated features, for this particular use case, we decided to ensure that any and all possible relationships between input and output variables can be explored (non-linear or linear), and since random forest in general gives feature importance we used that feature from random forest liabrary, we decided to keep 4 importantfeatures out of 32 to give us better prediction. 
 
 #### View Correlation Matrix to explore highly correlated features
 
@@ -180,6 +186,9 @@ featurePlot(x = diagnosis_data_train[, 2:31],
   - "compactness_mean"     
 
 #### Try a recursive feature elimination check - Feature Selection Method 1
+
+We tried multiple methods to decide which variables to use for feature importance. First one is recursive feature elimination technique as below.
+
 ```{r, message = FALSE}
 set.seed(100)
 options(warn=-1)
@@ -459,6 +468,61 @@ Just using accuracy as a measure would not yield good results as we have imbalan
   - Logistic Regression
   - Neural Net
   - kernel SVM
+  
+Size of Training Data
+Size of data is the key in our problem set. If our data is small with a smaller number of features then our training set is small as well, it results in high bias/low variance classifiers such as Naive Bayes. These classifiers have an edge of overfitting over the set of low bias/high variance classifiers which would be K-NN. Hence over time these classifiers start to perform better as training set size increases meaning the error decreases in the cost function.  These high bias classifiers end up being quite meek for a good case of accurate predictive modeling. In the following paragraphs I would be doing comparison between different algorithms to show the strength and accuracy of each classification algorithm in term of performance efficiency and time complexity.
+Features of Naive Bayes: 
+Simple algorithm for Bayesian classification which ends up being counts over all the observations. It works on a principle that all features are required to predict a model and are all correlated. As the name suggested it is based on Bayesian theorem, hence this algorithm is good for dataset with high dimensionality and high number of classes. It uses Bayesian theorem as the heart of its algorithm to solve the problem at hand
+ 
+Advantages:
+Training time for computations quite less.
+Removal of all  the irrelevant features from the dataset
+Improved Performance
+ 
+Disadvantages:
+ · Requires a very large number of records
+ · Less accuracy
+ 
+Features of Decision Trees: 
+ Decision trees are part of tree structured algorithm consisting of leafs, nodes and roots as their attributes. Top node is called root consisting of attributes and branching factors which other nodes. A Major Disadvantage over other classifiers is that it can easily overfit.
+Advantages:
+ · Simple and fast.
+· Highly Accurate, Scalable
+· It takes the less memory.
+ · Works with Noisy Data/Outliers
+· Works with measures like Entropy, Gini index, Lift etc.
+Works with hyperparameters.
+ 
+Disadvantages:
+· Long training time.
+· Issues with overfitting in certain cases
+·      Not Reusable
+ 
+Neural Networks
+Advantages:
+Complicated functions and non-linear problems can be solved easily by Neural network.
+Can use ensembling with other techniques to get good solution.
+Disadvantage
+Much Slower for training and classification
+Hard to interpret,
+Data comes in streams
+Not usable with small datasets.
+ 
+SVM
+Features of SVMs: Support Vector machine is a classification algorithm used primarily with text classification problems. It uses hyperplane to separate out different cluster of data. You can cut the universe in different classes using the hyperplane which can be molded in any direction. This can be done both linearly and non-linearly. The identified hyperplane can be thought as a decision boundary between the two clusters. This allows classification of vectors multi dimensionally. This can be used with text classification by encoding on text data. This results in every item in the dataset being represented as a vector with large value dimensions, everyone representing the frequency one of the words of the text.
+ 
+Advantages:
+High accuracy with small data,
+Not susceptible to overfitting
+Works with linear and non-linear data.
+ 
+Disadvantage:
+Although it is used frequently in text classification  and it often deals with very high-dimensional spaces.
+Memory-intensive operationally
+Hard to understand and implement certain .
+  
+  The best features for our dataset for our neural network resulted in a mean squared error on our training set of 97.  This trained model was then applied to the test dataset, in attempt to predict the one-year return variable (Output Return %) given the 16 data inputs.  The mean squared error for the test set prediction was 236.88, and the corresponding R2 value was -0.0071.   An R2 value of approximately 0 indicates that this model shows no predictive capabilities for the future value of stocks.
+Despite applying a neural network (i.e., potentially allowing for any function to explain the data), with optimized hyperparameters, to over 569 observations (426 training and 142 testing) of firms with data on 32 fundamental and technical features. since the features were all numerical and continous it helped us to get accurate prediction because of cleansed dataset.
 
 ```{r, message = FALSE}
 
