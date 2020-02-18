@@ -447,6 +447,10 @@ diag_kSVM_model <- svm(formula = diag_data_scaled_train$diagnosis ~.,
 diag_kSVM_pre <- predict(diag_kSVM_model, diag_data_scaled_test[,-c(1)])
 cm_kSVM <- confusionMatrix(diag_kSVM_pre, diag_data_scaled_test$diagnosis)
 cm_kSVM
+
+library(pROC)
+roc_obj <- roc(diag_data_scaled_test$diagnosis, diag_kSVM_pre)
+auc(roc_obj)
 ```
 
 ## 6. Final Model Analysis and Selection
@@ -464,73 +468,73 @@ Just using accuracy as a measure would not yield good results as we have imbalan
 #### Model Comparison
 
 - The following Machine Learning Algorithms were used in this analysis:
-  - Random Forest
-  - Logistic Regression
-  - Neural Net
-  - kernel SVM
+                        Accuracy Sesitivity Specificity 
+  - Random Forest        0,9790    0.9722     1.0000
+  - Logistic Regression  0.9578    0.9434     0.9664
+  - Neural Net           0.9790    1.0000     0.9722
+  - kernel SVM           0.9790    0.9722     1.0000
   
 Size of Training Data
 Size of data is the key in our problem set. If our data is small with a smaller number of features then our training set is small as well, it results in high bias/low variance classifiers such as Naive Bayes. These classifiers have an edge of overfitting over the set of low bias/high variance classifiers which would be K-NN. Hence over time these classifiers start to perform better as training set size increases meaning the error decreases in the cost function.  These high bias classifiers end up being quite meek for a good case of accurate predictive modeling. In the following paragraphs I would be doing comparison between different algorithms to show the strength and accuracy of each classification algorithm in term of performance efficiency and time complexity.
-Features of Naive Bayes: 
-Simple algorithm for Bayesian classification which ends up being counts over all the observations. It works on a principle that all features are required to predict a model and are all correlated. As the name suggested it is based on Bayesian theorem, hence this algorithm is good for dataset with high dimensionality and high number of classes. It uses Bayesian theorem as the heart of its algorithm to solve the problem at hand
- 
+
+Features of Random Forest: 
+Random Forest is a classification and regression algorithm. Here, we train several decision trees. The original learning dataset is randomly divided into several subsets of equal size. A decision tree is trained for each subset.
+
 Advantages:
-Training time for computations quite less.
-Removal of all  the irrelevant features from the dataset
-Improved Performance
+  - Robust to overfitting (thus solving one of the biggest disadvantages of decision trees)
+  - Parameterization remains quite simple and intuitive
+  - Performs very well when the number of features is big and for large quantity of learning data
  
 Disadvantages:
- · Requires a very large number of records
- · Less accuracy
- 
-Features of Decision Trees: 
- Decision trees are part of tree structured algorithm consisting of leafs, nodes and roots as their attributes. Top node is called root consisting of attributes and branching factors which other nodes. A Major Disadvantage over other classifiers is that it can easily overfit.
+  - Models generated with Random Forest may take a lot of memory
+  - Learning may be slow (depending on the parameterization)
+  - Not possible to iteratively improve the generated models
+
+Logistic Regression:
+Logistic Regression Model is a generalized form of Linear Regression Model. It is a very good Discrimination Tool. Following are the advantages and disadvantage of Logistic Regression:
+
 Advantages:
- · Simple and fast.
-· Highly Accurate, Scalable
-· It takes the less memory.
- · Works with Noisy Data/Outliers
-· Works with measures like Entropy, Gini index, Lift etc.
-Works with hyperparameters.
- 
+  - Logistic Regression performs well when the dataset is linearly separable.
+  - Logistic regression is less prone to over-fitting but it can overfit in high dimensional datasets. You should consider Regularization (L1 and L2) techniques to avoid over-fitting in these scenarios.
+  - Logistic Regression not only gives a measure of how relevant a predictor (coefficient size) is, but also its direction of association (positive or negative).
+  - Logistic regression is easier to implement, interpret and very efficient to train.
+  
 Disadvantages:
-· Long training time.
-· Issues with overfitting in certain cases
-·      Not Reusable
- 
-Neural Networks
+  - Main limitation of Logistic Regression is the assumption of linearity between the dependent variable and the independent variables. In the real world, the data is rarely linearly separable. Most of the time data would be a jumbled mess.
+  - If the number of observations are lesser than the number of features, Logistic Regression should not be used, otherwise it may lead to overfit.
+  - Logistic Regression can only be used to predict discrete functions. Therefore, the dependent variable of Logistic Regression is restricted to the discrete number set. This restriction itself is problematic, as it is prohibitive to the prediction of continuous data.
+
+Neural Network
 Advantages:
-Complicated functions and non-linear problems can be solved easily by Neural network.
-Can use ensembling with other techniques to get good solution.
+  - Complicated functions and non-linear problems can be solved easily by Neural network.
+  - Can use ensembling with other techniques to get good solution.
 Disadvantage
-Much Slower for training and classification
-Hard to interpret,
-Data comes in streams
-Not usable with small datasets.
+  - Much Slower for training and classification
+  - Hard to interpret,
+  - Data comes in streams
+  - Not usable with small datasets.
  
-SVM
-Features of SVMs: Support Vector machine is a classification algorithm used primarily with text classification problems. It uses hyperplane to separate out different cluster of data. You can cut the universe in different classes using the hyperplane which can be molded in any direction. This can be done both linearly and non-linearly. The identified hyperplane can be thought as a decision boundary between the two clusters. This allows classification of vectors multi dimensionally. This can be used with text classification by encoding on text data. This results in every item in the dataset being represented as a vector with large value dimensions, everyone representing the frequency one of the words of the text.
+Kernel SVM
+Features of SVMs: Support Vector machine is a classification algorithm used primarily with text classification problems. It uses  hyperplane to separate out different cluster of data. You can cut the universe in different classes using the hyperplane which can be molded in any direction. This can be done both linearly and non-linearly. The identified hyperplane can be thought as a decision boundary between the two clusters. This allows classification of vectors multi dimensionally. This can be used with text classification by encoding on text data. This results in every item in the dataset being represented as a vector with large value dimensions, everyone representing the frequency one of the words of the text.
  
 Advantages:
-High accuracy with small data,
-Not susceptible to overfitting
-Works with linear and non-linear data.
+  - High accuracy with small data,
+  - Not susceptible to overfitting
+  - Works with linear and non-linear data.
  
 Disadvantage:
-Although it is used frequently in text classification  and it often deals with very high-dimensional spaces.
-Memory-intensive operationally
-Hard to understand and implement certain .
-  
-  The best features for our dataset for our neural network resulted in a mean squared error on our training set of 97.  This trained model was then applied to the test dataset, in attempt to predict the one-year return variable (Output Return %) given the 16 data inputs.  The mean squared error for the test set prediction was 236.88, and the corresponding R2 value was -0.0071.   An R2 value of approximately 0 indicates that this model shows no predictive capabilities for the future value of stocks.
-Despite applying a neural network (i.e., potentially allowing for any function to explain the data), with optimized hyperparameters, to over 569 observations (426 training and 142 testing) of firms with data on 32 fundamental and technical features. since the features were all numerical and continous it helped us to get accurate prediction because of cleansed dataset.
+  - Memory-intensive operationally
+  - Hard to understand and implement certain.
 
 ```{r, message = FALSE}
 
 ```
 
-#### Selected Model: 
+#### Selected Model: We selected the Kernel SVM Model due to high accuracy and sensitivity as well as its charateristic of being accurate with small datasets of which this one.
 
 ## 7. Deployment
+
+#### Shiny App Url: https://paul-doucet.shinyapps.io/Group8Assignment1/
 
 #### Summary Explanation
 
